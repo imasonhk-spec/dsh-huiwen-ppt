@@ -1,0 +1,3389 @@
+{
+ "styles": [
+  {
+   "id": "green-clean-business",
+   "name": "绿色简洁商务",
+   "font": "微软雅黑",
+   "canvas": [
+    1280,
+    720
+   ],
+   "colors": {
+    "green": "#086440",
+    "deep": "#075735",
+    "text": "#18231D",
+    "muted": "#53645B",
+    "mint": "#EDF5F1",
+    "border": "#BBD7C9",
+    "amber": "#EDA500",
+    "white": "#FFFFFF"
+   },
+   "desc": "适合方案关系、协作机制、数据、实施条件和依据说明。8 页参考图高保真构图包优先，14 页通用版式兜底。",
+   "layouts_count": 22,
+   "status": "approved",
+   "representative": [
+    "clean-ref-01.png",
+    "clean-ref-03.png",
+    "clean-slide-04.png"
+   ]
+  },
+  {
+   "id": "green-office-illustrated",
+   "name": "绿色办公插画",
+   "font": "微软雅黑",
+   "canvas": [
+    1280,
+    720
+   ],
+   "colors": {
+    "green": "#2E7D52",
+    "deep": "#1F5C3C",
+    "text": "#1E2B24",
+    "muted": "#5B6E63",
+    "mint": "#EAF4EE",
+    "border": "#C4DCCD",
+    "amber": "#EDA500",
+    "white": "#FFFFFF"
+   },
+   "desc": "适合任务场景、业务角色、操作体验和流程说明。办公人物、立体文档、浅绿背景与绿色标题条。",
+   "layouts_count": 15,
+   "status": "approved",
+   "representative": [
+    "illu-slide-01.png",
+    "illu-slide-05.png",
+    "illu-slide-08.png"
+   ]
+  }
+ ],
+ "layouts": [
+  {
+   "id": "clean-cover",
+   "name": "主题封面",
+   "family": "green-clean-business",
+   "relation": "封面",
+   "tags": [
+    "封面",
+    "绿色简洁商务"
+   ],
+   "composition": "主题封面",
+   "required_fields": [
+    "主题",
+    "范围",
+    "日期"
+   ],
+   "asset_ids": [],
+   "template_slide": 1,
+   "source_pages": [
+    1
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-01.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-needs",
+   "name": "需求与服务映射",
+   "family": "green-clean-business",
+   "relation": "需求",
+   "tags": [
+    "需求",
+    "绿色简洁商务"
+   ],
+   "composition": "需求与服务映射",
+   "required_fields": [
+    "对象",
+    "现状",
+    "任务",
+    "能力",
+    "成果"
+   ],
+   "asset_ids": [
+    "clean-building",
+    "clean-search",
+    "clean-check"
+   ],
+   "template_slide": 2,
+   "source_pages": [
+    2
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-02.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-capabilities",
+   "name": "五项能力总览",
+   "family": "green-clean-business",
+   "relation": "总览",
+   "tags": [
+    "总览",
+    "绿色简洁商务"
+   ],
+   "composition": "五项能力总览",
+   "required_fields": [
+    "能力",
+    "任务",
+    "机制",
+    "输出"
+   ],
+   "asset_ids": [
+    "clean-document",
+    "clean-person",
+    "clean-network",
+    "clean-tool",
+    "clean-search"
+   ],
+   "template_slide": 3,
+   "source_pages": [
+    8
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-03.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-flow",
+   "name": "四步流程与交接",
+   "family": "green-clean-business",
+   "relation": "流程",
+   "tags": [
+    "流程",
+    "绿色简洁商务"
+   ],
+   "composition": "四步流程与交接",
+   "required_fields": [
+    "输入",
+    "动作",
+    "交接",
+    "输出",
+    "复核"
+   ],
+   "asset_ids": [
+    "clean-document",
+    "clean-search",
+    "clean-tool",
+    "clean-check"
+   ],
+   "template_slide": 4,
+   "source_pages": [
+    9
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-04.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-architecture",
+   "name": "协作架构与责任",
+   "family": "green-clean-business",
+   "relation": "架构",
+   "tags": [
+    "架构",
+    "绿色简洁商务"
+   ],
+   "composition": "协作架构与责任",
+   "required_fields": [
+    "入口",
+    "调度",
+    "服务",
+    "权限",
+    "留痕"
+   ],
+   "asset_ids": [
+    "clean-building",
+    "clean-network",
+    "clean-database"
+   ],
+   "template_slide": 5,
+   "source_pages": [
+    6
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-05.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-hub",
+   "name": "平台与服务生态",
+   "family": "green-clean-business",
+   "relation": "生态",
+   "tags": [
+    "生态",
+    "绿色简洁商务"
+   ],
+   "composition": "平台与服务生态",
+   "required_fields": [
+    "中心主体",
+    "参与角色",
+    "服务方向",
+    "交换内容"
+   ],
+   "asset_ids": [
+    "clean-network",
+    "clean-building",
+    "clean-person",
+    "clean-database",
+    "clean-tool"
+   ],
+   "template_slide": 6,
+   "source_pages": [
+    7
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-06.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-comparison",
+   "name": "方案条件对照",
+   "family": "green-clean-business",
+   "relation": "对比",
+   "tags": [
+    "对比",
+    "绿色简洁商务"
+   ],
+   "composition": "方案条件对照",
+   "required_fields": [
+    "维度",
+    "方案",
+    "依据",
+    "适用条件"
+   ],
+   "asset_ids": [],
+   "template_slide": 7,
+   "source_pages": [
+    17
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-07.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-metrics",
+   "name": "指标对照与解释",
+   "family": "green-clean-business",
+   "relation": "数据",
+   "tags": [
+    "数据",
+    "绿色简洁商务"
+   ],
+   "composition": "指标对照与解释",
+   "required_fields": [
+    "指标",
+    "单位",
+    "基准",
+    "结果",
+    "样本",
+    "时间",
+    "来源"
+   ],
+   "asset_ids": [
+    "clean-chart"
+   ],
+   "template_slide": 8,
+   "source_pages": [
+    3
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-08.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-case",
+   "name": "案例机制与证据",
+   "family": "green-clean-business",
+   "relation": "案例",
+   "tags": [
+    "案例",
+    "绿色简洁商务"
+   ],
+   "composition": "案例机制与证据",
+   "required_fields": [
+    "任务",
+    "输入",
+    "处理",
+    "交付",
+    "证据",
+    "边界"
+   ],
+   "asset_ids": [
+    "clean-document",
+    "clean-search",
+    "clean-check"
+   ],
+   "template_slide": 9,
+   "source_pages": [
+    10
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-09.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-roadmap",
+   "name": "阶段计划与验收",
+   "family": "green-clean-business",
+   "relation": "计划",
+   "tags": [
+    "计划",
+    "绿色简洁商务"
+   ],
+   "composition": "阶段计划与验收",
+   "required_fields": [
+    "时间",
+    "负责人",
+    "动作",
+    "交付物",
+    "验收条件"
+   ],
+   "asset_ids": [
+    "clean-clock"
+   ],
+   "template_slide": 10,
+   "source_pages": [
+    15
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-10.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-evidence",
+   "name": "内容与依据清单",
+   "family": "green-clean-business",
+   "relation": "表格",
+   "tags": [
+    "表格",
+    "绿色简洁商务"
+   ],
+   "composition": "内容与依据清单",
+   "required_fields": [
+    "表述",
+    "来源",
+    "核对状态",
+    "下一步"
+   ],
+   "asset_ids": [],
+   "template_slide": 11,
+   "source_pages": [
+    18
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-11.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-governance",
+   "name": "运行规则与异常处理",
+   "family": "green-clean-business",
+   "relation": "治理",
+   "tags": [
+    "治理",
+    "绿色简洁商务"
+   ],
+   "composition": "运行规则与异常处理",
+   "required_fields": [
+    "触发条件",
+    "责任人",
+    "处理动作",
+    "恢复条件"
+   ],
+   "asset_ids": [
+    "clean-person",
+    "clean-database",
+    "clean-clock",
+    "clean-check"
+   ],
+   "template_slide": 12,
+   "source_pages": [
+    18
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-12.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-icons",
+   "name": "线性图标素材页",
+   "family": "green-clean-business",
+   "relation": "素材",
+   "tags": [
+    "素材",
+    "绿色简洁商务"
+   ],
+   "composition": "线性图标素材页",
+   "required_fields": [
+    "图标语义",
+    "颜色",
+    "线宽"
+   ],
+   "asset_ids": [
+    "clean-document",
+    "clean-search",
+    "clean-person",
+    "clean-building",
+    "clean-network",
+    "clean-database",
+    "clean-check",
+    "clean-clock",
+    "clean-chart",
+    "clean-tool",
+    "clean-message",
+    "clean-layers"
+   ],
+   "template_slide": 13,
+   "source_pages": [
+    8
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-13.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-closing",
+   "name": "讨论与决策事项",
+   "family": "green-clean-business",
+   "relation": "收尾",
+   "tags": [
+    "收尾",
+    "绿色简洁商务"
+   ],
+   "composition": "讨论与决策事项",
+   "required_fields": [
+    "待决事项",
+    "所需依据",
+    "责任安排"
+   ],
+   "asset_ids": [],
+   "template_slide": 14,
+   "source_pages": [
+    20
+   ],
+   "origin": "derived_editable_reconstruction",
+   "preview": "clean-slide-14.png",
+   "pack": "generic",
+   "approval": "pending",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-01",
+   "name": "三支柱责任与数据协同",
+   "family": "green-clean-business",
+   "relation": "组织保障",
+   "tags": [
+    "组织保障",
+    "运营机制",
+    "数据协同"
+   ],
+   "composition": "三支柱：左右职责域＋中央运营权责＋底部结论",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-building",
+    "clean-database",
+    "clean-check"
+   ],
+   "template_slide": 15,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-01.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-02",
+   "name": "授权数据到 Agent 广场",
+   "family": "green-clean-business",
+   "relation": "能力资产",
+   "tags": [
+    "能力资产",
+    "授权",
+    "供需匹配"
+   ],
+   "composition": "授权数据 → 能力名片 → Agent 广场",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-building",
+    "clean-network",
+    "clean-person"
+   ],
+   "template_slide": 16,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-02.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-03",
+   "name": "A2A 协作机制与五步确认",
+   "family": "green-clean-business",
+   "relation": "A2A 协作",
+   "tags": [
+    "A2A 协作",
+    "服务撮合",
+    "企业确认"
+   ],
+   "composition": "左侧合作形成＋右侧五步确认机制",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-person",
+    "clean-network",
+    "clean-check"
+   ],
+   "template_slide": 17,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-03.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-04",
+   "name": "社群入口与交流协作",
+   "family": "green-clean-business",
+   "relation": "社群服务",
+   "tags": [
+    "社群服务",
+    "资源协同",
+    "活动运营"
+   ],
+   "composition": "四项社群入口＋中央交流连接＋企业收益",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-message",
+    "clean-building",
+    "clean-tool"
+   ],
+   "template_slide": 18,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-04.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-05",
+   "name": "企业难点到平台服务映射",
+   "family": "green-clean-business",
+   "relation": "办事难点",
+   "tags": [
+    "办事难点",
+    "服务能力",
+    "用户收益"
+   ],
+   "composition": "人物难点卡 → 平台服务能力逐项映射",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-people-thinking",
+    "clean-search",
+    "clean-document"
+   ],
+   "template_slide": 19,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-05.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-06",
+   "name": "企业专属 Agent 中心",
+   "family": "green-clean-business",
+   "relation": "企业专属 Agent",
+   "tags": [
+    "企业专属 Agent",
+    "服务生态"
+   ],
+   "composition": "左侧前提＋中央 Agent 主体＋周边能力",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-people-laptop",
+    "clean-network",
+    "clean-check"
+   ],
+   "template_slide": 20,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-06.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-07",
+   "name": "政企双侧通道与结果回写",
+   "family": "green-clean-business",
+   "relation": "政企协同",
+   "tags": [
+    "政企协同",
+    "A2A",
+    "确认留痕"
+   ],
+   "composition": "政府侧通道＋中心 Agent＋企业侧通道＋结果回写",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-people-handshake",
+    "clean-network",
+    "clean-check"
+   ],
+   "template_slide": 21,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-07.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "clean-reference-08",
+   "name": "三项判断与指标占位",
+   "family": "green-clean-business",
+   "relation": "调研判断",
+   "tags": [
+    "调研判断",
+    "指标分析",
+    "建设依据"
+   ],
+   "composition": "三张判断卡＋双指标＋底部结论",
+   "required_fields": [
+    "标题导语",
+    "主体关系",
+    "编号或步骤",
+    "连接线或回写",
+    "底部结论"
+   ],
+   "asset_ids": [
+    "clean-chart",
+    "clean-building",
+    "clean-check"
+   ],
+   "template_slide": 22,
+   "source_pages": [
+    1
+   ],
+   "origin": "reference_fidelity_reconstruction",
+   "preview": "clean-ref-08.png",
+   "pack": "reference_pack",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape",
+    "connector"
+   ]
+  },
+  {
+   "id": "needs-map",
+   "name": "需求与能力映射",
+   "family": "green-office-illustrated",
+   "relation": "需求",
+   "tags": [
+    "需求",
+    "定位",
+    "能力"
+   ],
+   "composition": "左侧人物与任务，右侧三条能力，每条含机制和产出",
+   "required_fields": [
+    "服务对象与任务",
+    "任务痛点",
+    "能力名称",
+    "处理机制",
+    "可见产出",
+    "使用条件"
+   ],
+   "asset_ids": [
+    "office-team",
+    "document-search",
+    "document-organize",
+    "document-verify"
+   ],
+   "template_slide": 1,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-01.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "platform-hub",
+   "name": "平台中心与能力分支",
+   "family": "green-office-illustrated",
+   "relation": "定位",
+   "tags": [
+    "定位",
+    "平台",
+    "关系"
+   ],
+   "composition": "中心入口与三个分支，连线表达归属关系",
+   "required_fields": [
+    "中心主体",
+    "分支名称",
+    "输入与处理范围",
+    "输出",
+    "权限条件"
+   ],
+   "asset_ids": [
+    "platform",
+    "meeting-assistant",
+    "document-search",
+    "policy-check"
+   ],
+   "template_slide": 2,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-02.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "four-step-evidence",
+   "name": "任务与四步处理链",
+   "family": "green-office-illustrated",
+   "relation": "流程",
+   "tags": [
+    "流程",
+    "任务",
+    "依据"
+   ],
+   "composition": "上部任务条，中部四步，下部成果与复核条件",
+   "required_fields": [
+    "业务任务",
+    "每步动作",
+    "每步输入或输出",
+    "工作成果",
+    "人工复核",
+    "资料缺口处理"
+   ],
+   "asset_ids": [
+    "draft-task",
+    "step-ingest",
+    "step-scope",
+    "step-search",
+    "step-draft"
+   ],
+   "template_slide": 3,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-03.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "screen-explainer",
+   "name": "界面与操作解读",
+   "family": "green-office-illustrated",
+   "relation": "界面",
+   "tags": [
+    "界面",
+    "演示",
+    "功能"
+   ],
+   "composition": "左侧真实截图与结果提示，右侧分阶段解释",
+   "required_fields": [
+    "界面来源与版本",
+    "操作入口",
+    "输入字段",
+    "执行反馈",
+    "最终成果",
+    "适用限制"
+   ],
+   "asset_ids": [
+    "meeting-ui-reference"
+   ],
+   "template_slide": 4,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-04.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "three-stage",
+   "name": "三阶段业务生命周期",
+   "family": "green-office-illustrated",
+   "relation": "流程",
+   "tags": [
+    "流程",
+    "阶段",
+    "会议"
+   ],
+   "composition": "三列大插画与阶段说明，底部横向审核条件",
+   "required_fields": [
+    "阶段名称",
+    "输入材料",
+    "具体动作",
+    "阶段产出",
+    "审核条件"
+   ],
+   "asset_ids": [
+    "meeting-prepare",
+    "meeting-record",
+    "meeting-result"
+   ],
+   "template_slide": 5,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-05.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "metric-comparison",
+   "name": "指标与前后对照",
+   "family": "green-office-illustrated",
+   "relation": "指标",
+   "tags": [
+    "指标",
+    "对比",
+    "数据"
+   ],
+   "composition": "两组大数值或测量状态，原生对照图，底部测量口径",
+   "required_fields": [
+    "指标定义",
+    "基准值",
+    "对照值",
+    "单位",
+    "同批任务范围",
+    "样本量与日期",
+    "计算方法",
+    "复核成本"
+   ],
+   "asset_ids": [
+    "value-growth"
+   ],
+   "template_slide": 6,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-06.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "architecture-pipeline",
+   "name": "输入与处理及结果架构",
+   "family": "green-office-illustrated",
+   "relation": "技术",
+   "tags": [
+    "技术",
+    "架构",
+    "机制"
+   ],
+   "composition": "左侧业务入口，中部三处理模块，右侧结果与依据，下部技术组成",
+   "required_fields": [
+    "入口与权限",
+    "模块职责",
+    "模块输入输出",
+    "依赖关系",
+    "结果来源",
+    "实际状态",
+    "技术组成"
+   ],
+   "asset_ids": [
+    "model-server",
+    "rag-search",
+    "structured-tool"
+   ],
+   "template_slide": 7,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-07.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "radial-rules",
+   "name": "中心规则与四项约束",
+   "family": "green-office-illustrated",
+   "relation": "规则",
+   "tags": [
+    "规则",
+    "设计",
+    "关系"
+   ],
+   "composition": "中心原则与四周规则，四条连线表达归属",
+   "required_fields": [
+    "中心原则",
+    "规则名称",
+    "触发条件",
+    "执行要求",
+    "验证证据"
+   ],
+   "asset_ids": [
+    "business-tools",
+    "policy-check",
+    "upload-files",
+    "source-review"
+   ],
+   "template_slide": 8,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-08.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "value-verification",
+   "name": "价值说明与验证设计",
+   "family": "green-office-illustrated",
+   "relation": "价值",
+   "tags": [
+    "价值",
+    "验证",
+    "产出"
+   ],
+   "composition": "上部三组机制与价值，下部验证方法和指标",
+   "required_fields": [
+    "处理机制",
+    "减少的操作",
+    "可核对的价值",
+    "验证任务",
+    "采集指标",
+    "结果依据"
+   ],
+   "asset_ids": [
+    "value-search",
+    "value-organize",
+    "value-trace",
+    "value-growth"
+   ],
+   "template_slide": 9,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-09.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "continuity-exceptions",
+   "name": "连续任务与异常处置",
+   "family": "green-office-illustrated",
+   "relation": "异常",
+   "tags": [
+    "异常",
+    "功能",
+    "稳定性"
+   ],
+   "composition": "左侧连续任务，中心主体，右侧异常，底部状态核验",
+   "required_fields": [
+    "连续任务状态",
+    "范围约束",
+    "异常触发",
+    "恢复动作",
+    "可见反馈",
+    "成功证据",
+    "人工复核"
+   ],
+   "asset_ids": [
+    "central-documents",
+    "upload-files",
+    "document-verify"
+   ],
+   "template_slide": 10,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-10.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "four-boundaries",
+   "name": "四项边界与审核关系",
+   "family": "green-office-illustrated",
+   "relation": "边界",
+   "tags": [
+    "边界",
+    "合规",
+    "权限"
+   ],
+   "composition": "上部四列范围规则，下部中心盾牌与边界标签",
+   "required_fields": [
+    "资料范围",
+    "权限范围",
+    "留痕对象",
+    "网络边界",
+    "审核责任",
+    "落实证据"
+   ],
+   "asset_ids": [
+    "security-shield",
+    "policy-check",
+    "source-review"
+   ],
+   "template_slide": 11,
+   "source_pages": [],
+   "origin": "reference",
+   "preview": "illu-slide-11.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "evidence-table",
+   "name": "内容与依据对照表",
+   "family": "green-office-illustrated",
+   "relation": "表格",
+   "tags": [
+    "表格",
+    "引用",
+    "依据"
+   ],
+   "composition": "左侧文档插画，右侧原生表格，底部缺口说明",
+   "required_fields": [
+    "内容项目",
+    "具体表述",
+    "来源位置",
+    "日期或版本",
+    "核对状态"
+   ],
+   "asset_ids": [
+    "document-verify"
+   ],
+   "template_slide": 12,
+   "source_pages": [],
+   "origin": "derived",
+   "preview": "illu-slide-12.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "roadmap-deliverables",
+   "name": "路线图与阶段产出",
+   "family": "green-office-illustrated",
+   "relation": "计划",
+   "tags": [
+    "计划",
+    "路线图",
+    "落地"
+   ],
+   "composition": "上部时间节点，中部阶段动作，下部交付与验收",
+   "required_fields": [
+    "阶段",
+    "时间或启动条件",
+    "负责人",
+    "具体动作",
+    "交付物",
+    "验收条件",
+    "依赖项"
+   ],
+   "asset_ids": [
+    "meeting-prepare",
+    "step-draft",
+    "document-verify"
+   ],
+   "template_slide": 13,
+   "source_pages": [],
+   "origin": "derived",
+   "preview": "illu-slide-13.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "option-matrix",
+   "name": "方案选择与条件矩阵",
+   "family": "green-office-illustrated",
+   "relation": "方案",
+   "tags": [
+    "方案",
+    "比较",
+    "选择"
+   ],
+   "composition": "原生矩阵按相同维度比较，底部适用条件",
+   "required_fields": [
+    "方案名称",
+    "统一比较维度",
+    "事实依据",
+    "投入条件",
+    "适用范围",
+    "待确认项"
+   ],
+   "asset_ids": [
+    "business-tools"
+   ],
+   "template_slide": 14,
+   "source_pages": [],
+   "origin": "derived",
+   "preview": "illu-slide-14.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  },
+  {
+   "id": "chart-explainer",
+   "name": "数据图与解释依据",
+   "family": "green-office-illustrated",
+   "relation": "图表",
+   "tags": [
+    "图表",
+    "分析",
+    "趋势"
+   ],
+   "composition": "左侧原生图表，右侧解释、测量口径和行动",
+   "required_fields": [
+    "时间或类别",
+    "数值与单位",
+    "数据来源",
+    "比较结果",
+    "原因依据",
+    "使用条件"
+   ],
+   "asset_ids": [
+    "value-growth"
+   ],
+   "template_slide": 15,
+   "source_pages": [],
+   "origin": "derived",
+   "preview": "illu-slide-15.png",
+   "pack": "generic",
+   "approval": "approved",
+   "editability": [
+    "text",
+    "shape"
+   ]
+  }
+ ],
+ "assets": [
+  {
+   "id": "clean-building",
+   "name": "线性图标·楼宇",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-building.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "楼宇"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-chart",
+   "name": "线性图标·图表",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-chart.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "图表"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-check",
+   "name": "线性图标·对勾",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-check.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "对勾"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-clock",
+   "name": "线性图标·时钟",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-clock.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "时钟"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-database",
+   "name": "线性图标·数据库",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-database.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "数据库"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-document",
+   "name": "线性图标·文档",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-document.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "文档"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-layers",
+   "name": "线性图标·图层",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-layers.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "图层"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-message",
+   "name": "线性图标·消息",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-message.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "消息"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-network",
+   "name": "线性图标·网络",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-network.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "网络"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-person",
+   "name": "线性图标·人物",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-person.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "人物"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-search",
+   "name": "线性图标·检索",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-search.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "检索"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-tool",
+   "name": "线性图标·工具",
+   "type": "icon",
+   "family": "green-clean-business",
+   "file": "icon-tool.svg",
+   "tags": [
+    "线性",
+    "图标",
+    "工具"
+   ],
+   "transparent": true,
+   "usage": "主体页功能图标，绿色线描风格统一"
+  },
+  {
+   "id": "clean-people-handshake",
+   "name": "线描商务人物·握手协作",
+   "type": "people",
+   "family": "green-clean-business",
+   "file": "people-handshake.png",
+   "tags": [
+    "人物",
+    "线描",
+    "握手协作"
+   ],
+   "transparent": true,
+   "usage": "封面或场景重点页配套使用"
+  },
+  {
+   "id": "clean-people-laptop",
+   "name": "线描商务人物·办公操作",
+   "type": "people",
+   "family": "green-clean-business",
+   "file": "people-laptop.png",
+   "tags": [
+    "人物",
+    "线描",
+    "办公操作"
+   ],
+   "transparent": true,
+   "usage": "封面或场景重点页配套使用"
+  },
+  {
+   "id": "clean-people-thinking",
+   "name": "线描商务人物·思考分析",
+   "type": "people",
+   "family": "green-clean-business",
+   "file": "people-thinking.png",
+   "tags": [
+    "人物",
+    "线描",
+    "思考分析"
+   ],
+   "transparent": true,
+   "usage": "封面或场景重点页配套使用"
+  }
+ ],
+ "canvas": {
+  "1": [
+   {
+    "shape_id": "30",
+    "name": "淡城市0",
+    "kind": "sp",
+    "text": "",
+    "x": 920.0,
+    "y": 577.0,
+    "w": 22.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "2",
+    "name": "淡城市1",
+    "kind": "sp",
+    "text": "",
+    "x": 952.0,
+    "y": 549.0,
+    "w": 22.0,
+    "h": 76.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "3",
+    "name": "淡城市2",
+    "kind": "sp",
+    "text": "",
+    "x": 984.0,
+    "y": 521.0,
+    "w": 22.0,
+    "h": 104.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "4",
+    "name": "淡城市3",
+    "kind": "sp",
+    "text": "",
+    "x": 1016.0,
+    "y": 567.0,
+    "w": 22.0,
+    "h": 58.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "5",
+    "name": "淡城市4",
+    "kind": "sp",
+    "text": "",
+    "x": 1048.0,
+    "y": 537.0,
+    "w": 22.0,
+    "h": 88.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "6",
+    "name": "淡城市5",
+    "kind": "sp",
+    "text": "",
+    "x": 1080.0,
+    "y": 493.0,
+    "w": 22.0,
+    "h": 132.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "7",
+    "name": "淡城市6",
+    "kind": "sp",
+    "text": "",
+    "x": 1112.0,
+    "y": 563.0,
+    "w": 22.0,
+    "h": 62.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "8",
+    "name": "淡城市7",
+    "kind": "sp",
+    "text": "",
+    "x": 1144.0,
+    "y": 527.0,
+    "w": 22.0,
+    "h": 98.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "9",
+    "name": "淡城市8",
+    "kind": "sp",
+    "text": "",
+    "x": 1176.0,
+    "y": 555.0,
+    "w": 22.0,
+    "h": 70.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "10",
+    "name": "淡城市9",
+    "kind": "sp",
+    "text": "",
+    "x": 1208.0,
+    "y": 581.0,
+    "w": 22.0,
+    "h": 44.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "12",
+    "name": "对象12",
+    "kind": "pic",
+    "text": "",
+    "x": 27.0,
+    "y": 17.0,
+    "w": 54.0,
+    "h": 40.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "13",
+    "name": "标题",
+    "kind": "sp",
+    "text": "主题封面",
+    "x": 98.0,
+    "y": 20.0,
+    "w": 1000.0,
+    "h": 48.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "14",
+    "name": "页码",
+    "kind": "sp",
+    "text": "01",
+    "x": 1158.0,
+    "y": 27.0,
+    "w": 70.0,
+    "h": 35.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "16",
+    "name": "封面主题",
+    "kind": "sp",
+    "text": "绿色简洁商务",
+    "x": 72.0,
+    "y": 206.0,
+    "w": 660.0,
+    "h": 84.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "17",
+    "name": "副标题",
+    "kind": "sp",
+    "text": "版式与素材参考",
+    "x": 76.0,
+    "y": 311.0,
+    "w": 620.0,
+    "h": 58.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "18",
+    "name": "范围",
+    "kind": "sp",
+    "text": "需求 · 流程 · 架构 · 数据 · 案例 · 计划",
+    "x": 76.0,
+    "y": 402.0,
+    "w": 705.0,
+    "h": 44.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "20",
+    "name": "版本",
+    "kind": "sp",
+    "text": "可编辑参考版式  /  2026.10",
+    "x": 76.0,
+    "y": 507.0,
+    "w": 690.0,
+    "h": 38.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "21",
+    "name": "icon-network-0",
+    "kind": "sp",
+    "text": "",
+    "x": 945.5,
+    "y": 245.6,
+    "w": 63.0,
+    "h": 52.5,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "26",
+    "name": "icon-network-5",
+    "kind": "sp",
+    "text": "",
+    "x": 880.4,
+    "y": 375.8,
+    "w": 54.6,
+    "h": 54.6,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "27",
+    "name": "icon-network-6",
+    "kind": "sp",
+    "text": "",
+    "x": 1019.0,
+    "y": 375.8,
+    "w": 54.6,
+    "h": 54.6,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "28",
+    "name": "结论底",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 638.0,
+    "w": 1176.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "29",
+    "name": "结论",
+    "kind": "sp",
+    "text": "以线性图标组织关系，以明确的层级承载完整内容",
+    "x": 72.0,
+    "y": 645.0,
+    "w": 1136.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   }
+  ],
+  "2": [
+   {
+    "shape_id": "48",
+    "name": "淡城市0",
+    "kind": "sp",
+    "text": "",
+    "x": 920.0,
+    "y": 577.0,
+    "w": 22.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "2",
+    "name": "淡城市1",
+    "kind": "sp",
+    "text": "",
+    "x": 952.0,
+    "y": 549.0,
+    "w": 22.0,
+    "h": 76.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "3",
+    "name": "淡城市2",
+    "kind": "sp",
+    "text": "",
+    "x": 984.0,
+    "y": 521.0,
+    "w": 22.0,
+    "h": 104.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "4",
+    "name": "淡城市3",
+    "kind": "sp",
+    "text": "",
+    "x": 1016.0,
+    "y": 567.0,
+    "w": 22.0,
+    "h": 58.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "5",
+    "name": "淡城市4",
+    "kind": "sp",
+    "text": "",
+    "x": 1048.0,
+    "y": 537.0,
+    "w": 22.0,
+    "h": 88.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "6",
+    "name": "淡城市5",
+    "kind": "sp",
+    "text": "",
+    "x": 1080.0,
+    "y": 493.0,
+    "w": 22.0,
+    "h": 132.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "7",
+    "name": "淡城市6",
+    "kind": "sp",
+    "text": "",
+    "x": 1112.0,
+    "y": 563.0,
+    "w": 22.0,
+    "h": 62.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "8",
+    "name": "淡城市7",
+    "kind": "sp",
+    "text": "",
+    "x": 1144.0,
+    "y": 527.0,
+    "w": 22.0,
+    "h": 98.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "9",
+    "name": "淡城市8",
+    "kind": "sp",
+    "text": "",
+    "x": 1176.0,
+    "y": 555.0,
+    "w": 22.0,
+    "h": 70.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "10",
+    "name": "淡城市9",
+    "kind": "sp",
+    "text": "",
+    "x": 1208.0,
+    "y": 581.0,
+    "w": 22.0,
+    "h": 44.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "12",
+    "name": "对象12",
+    "kind": "pic",
+    "text": "",
+    "x": 27.0,
+    "y": 17.0,
+    "w": 54.0,
+    "h": 40.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "13",
+    "name": "标题",
+    "kind": "sp",
+    "text": "需求与服务映射",
+    "x": 98.0,
+    "y": 20.0,
+    "w": 1000.0,
+    "h": 48.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "14",
+    "name": "页码",
+    "kind": "sp",
+    "text": "02",
+    "x": 1158.0,
+    "y": 27.0,
+    "w": 70.0,
+    "h": 35.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "16",
+    "name": "导语",
+    "kind": "sp",
+    "text": "围绕一个业务任务，说明现状、处理机制与可交付成果",
+    "x": 52.0,
+    "y": 99.0,
+    "w": 1176.0,
+    "h": 43.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "17",
+    "name": "需求对象",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 176.0,
+    "w": 360.0,
+    "h": 418.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "18",
+    "name": "icon-building-0",
+    "kind": "sp",
+    "text": "",
+    "x": 205.8,
+    "y": 216.8,
+    "w": 52.5,
+    "h": 59.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "19",
+    "name": "icon-building-1",
+    "kind": "sp",
+    "text": "",
+    "x": 223.0,
+    "y": 256.9,
+    "w": 18.0,
+    "h": 18.9,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "24",
+    "name": "对象标题",
+    "kind": "sp",
+    "text": "业务对象与当前任务",
+    "x": 74.0,
+    "y": 309.0,
+    "w": 316.0,
+    "h": 40.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "25",
+    "name": "对象内容",
+    "kind": "sp",
+    "text": "对象：谁在什么场景下使用\n现状：目前如何处理任务\n问题：哪项操作造成阻碍\n范围：涉及哪些材料与部门",
+    "x": 78.0,
+    "y": 373.0,
+    "w": 308.0,
+    "h": 169.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "26",
+    "name": "icon-document-0",
+    "kind": "sp",
+    "text": "",
+    "x": 479.4,
+    "y": 207.2,
+    "w": 37.2,
+    "h": 49.6,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "30",
+    "name": "资料范围",
+    "kind": "sp",
+    "text": "资料范围",
+    "x": 556.0,
+    "y": 178.0,
+    "w": 655.0,
+    "h": 37.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "31",
+    "name": "资料范围机制",
+    "kind": "sp",
+    "text": "列出输入材料、版本与可访问范围。",
+    "x": 556.0,
+    "y": 221.0,
+    "w": 655.0,
+    "h": 38.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "32",
+    "name": "资料范围交付",
+    "kind": "sp",
+    "text": "交付：材料目录与缺口清单",
+    "x": 556.0,
+    "y": 260.0,
+    "w": 655.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "34",
+    "name": "icon-search-0",
+    "kind": "sp",
+    "text": "",
+    "x": 476.3,
+    "y": 351.4,
+    "w": 33.5,
+    "h": 33.5,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "35",
+    "name": "icon-search-1",
+    "kind": "sp",
+    "text": "",
+    "x": 504.8,
+    "y": 383.1,
+    "w": 16.1,
+    "h": 16.1,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "36",
+    "name": "处理机制",
+    "kind": "sp",
+    "text": "处理机制",
+    "x": 556.0,
+    "y": 321.0,
+    "w": 655.0,
+    "h": 37.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "37",
+    "name": "处理机制机制",
+    "kind": "sp",
+    "text": "说明检索、匹配、核对及人工参与环节。",
+    "x": 556.0,
+    "y": 364.0,
+    "w": 655.0,
+    "h": 38.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "38",
+    "name": "处理机制交付",
+    "kind": "sp",
+    "text": "交付：处理记录与依据位置",
+    "x": 556.0,
+    "y": 403.0,
+    "w": 655.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "40",
+    "name": "icon-check-0",
+    "kind": "sp",
+    "text": "",
+    "x": 477.5,
+    "y": 493.2,
+    "w": 40.9,
+    "h": 49.6,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "41",
+    "name": "icon-check-1",
+    "kind": "sp",
+    "text": "",
+    "x": 485.6,
+    "y": 517.4,
+    "w": 9.3,
+    "h": 9.9,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "42",
+    "name": "icon-check-2",
+    "kind": "sp",
+    "text": "",
+    "x": 494.9,
+    "y": 506.8,
+    "w": 16.7,
+    "h": 20.5,
+    "editable_text": false,
+    "editable_geometry": false,
+    "locked": true
+   },
+   {
+    "shape_id": "43",
+    "name": "结果交接",
+    "kind": "sp",
+    "text": "结果交接",
+    "x": 556.0,
+    "y": 464.0,
+    "w": 655.0,
+    "h": 37.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "44",
+    "name": "结果交接机制",
+    "kind": "sp",
+    "text": "明确结果形式、复核责任和使用条件。",
+    "x": 556.0,
+    "y": 507.0,
+    "w": 655.0,
+    "h": 38.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "45",
+    "name": "结果交接交付",
+    "kind": "sp",
+    "text": "交付：成果文件与确认记录",
+    "x": 556.0,
+    "y": 546.0,
+    "w": 655.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "46",
+    "name": "结论底",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 638.0,
+    "w": 1176.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "47",
+    "name": "结论",
+    "kind": "sp",
+    "text": "每项能力对应一个具体任务，并保留输入、动作和成果之间的联系",
+    "x": 72.0,
+    "y": 645.0,
+    "w": 1136.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   }
+  ],
+  "4": [
+   {
+    "shape_id": "56",
+    "name": "淡城市0",
+    "kind": "sp",
+    "text": "",
+    "x": 920.0,
+    "y": 577.0,
+    "w": 22.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "2",
+    "name": "淡城市1",
+    "kind": "sp",
+    "text": "",
+    "x": 952.0,
+    "y": 549.0,
+    "w": 22.0,
+    "h": 76.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "3",
+    "name": "淡城市2",
+    "kind": "sp",
+    "text": "",
+    "x": 984.0,
+    "y": 521.0,
+    "w": 22.0,
+    "h": 104.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "4",
+    "name": "淡城市3",
+    "kind": "sp",
+    "text": "",
+    "x": 1016.0,
+    "y": 567.0,
+    "w": 22.0,
+    "h": 58.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "5",
+    "name": "淡城市4",
+    "kind": "sp",
+    "text": "",
+    "x": 1048.0,
+    "y": 537.0,
+    "w": 22.0,
+    "h": 88.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "6",
+    "name": "淡城市5",
+    "kind": "sp",
+    "text": "",
+    "x": 1080.0,
+    "y": 493.0,
+    "w": 22.0,
+    "h": 132.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "7",
+    "name": "淡城市6",
+    "kind": "sp",
+    "text": "",
+    "x": 1112.0,
+    "y": 563.0,
+    "w": 22.0,
+    "h": 62.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "8",
+    "name": "淡城市7",
+    "kind": "sp",
+    "text": "",
+    "x": 1144.0,
+    "y": 527.0,
+    "w": 22.0,
+    "h": 98.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "9",
+    "name": "淡城市8",
+    "kind": "sp",
+    "text": "",
+    "x": 1176.0,
+    "y": 555.0,
+    "w": 22.0,
+    "h": 70.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "10",
+    "name": "淡城市9",
+    "kind": "sp",
+    "text": "",
+    "x": 1208.0,
+    "y": 581.0,
+    "w": 22.0,
+    "h": 44.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "12",
+    "name": "对象12",
+    "kind": "pic",
+    "text": "",
+    "x": 27.0,
+    "y": 17.0,
+    "w": 54.0,
+    "h": 40.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "13",
+    "name": "标题",
+    "kind": "sp",
+    "text": "四步流程与交接",
+    "x": 98.0,
+    "y": 20.0,
+    "w": 1000.0,
+    "h": 48.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "14",
+    "name": "页码",
+    "kind": "sp",
+    "text": "04",
+    "x": 1158.0,
+    "y": 27.0,
+    "w": 70.0,
+    "h": 35.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "16",
+    "name": "导语",
+    "kind": "sp",
+    "text": "逐步写清输入、处理动作、可见输出和交接条件",
+    "x": 52.0,
+    "y": 99.0,
+    "w": 1176.0,
+    "h": 43.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "17",
+    "name": "序号底01",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "18",
+    "name": "序号01",
+    "kind": "sp",
+    "text": "01",
+    "x": 52.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "19",
+    "name": "icon-document-0",
+    "kind": "sp",
+    "text": "",
+    "x": 155.8,
+    "y": 190.9,
+    "w": 41.4,
+    "h": 55.2,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "23",
+    "name": "步骤名称0",
+    "kind": "sp",
+    "text": "确定范围",
+    "x": 61.0,
+    "y": 279.0,
+    "w": 254.0,
+    "h": 42.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "24",
+    "name": "步骤说明0",
+    "kind": "sp",
+    "text": "输入：任务与材料\n动作：核实边界和权限\n输出：本次处理清单",
+    "x": 61.0,
+    "y": 342.0,
+    "w": 254.0,
+    "h": 140.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "26",
+    "name": "交接箭头",
+    "kind": "sp",
+    "text": "",
+    "x": 327.0,
+    "y": 306.0,
+    "w": 22.0,
+    "h": 22.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "27",
+    "name": "序号底02",
+    "kind": "sp",
+    "text": "",
+    "x": 353.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "28",
+    "name": "序号02",
+    "kind": "sp",
+    "text": "02",
+    "x": 353.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "29",
+    "name": "icon-search-0",
+    "kind": "sp",
+    "text": "",
+    "x": 453.4,
+    "y": 192.3,
+    "w": 37.3,
+    "h": 37.3,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "30",
+    "name": "icon-search-1",
+    "kind": "sp",
+    "text": "",
+    "x": 485.1,
+    "y": 227.5,
+    "w": 17.9,
+    "h": 17.9,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "31",
+    "name": "步骤名称1",
+    "kind": "sp",
+    "text": "整理材料",
+    "x": 362.0,
+    "y": 279.0,
+    "w": 254.0,
+    "h": 42.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "32",
+    "name": "步骤说明1",
+    "kind": "sp",
+    "text": "输入：已选定的材料\n动作：检查版本与缺项\n输出：结构化资料目录",
+    "x": 362.0,
+    "y": 342.0,
+    "w": 254.0,
+    "h": 140.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "34",
+    "name": "交接箭头",
+    "kind": "sp",
+    "text": "",
+    "x": 628.0,
+    "y": 306.0,
+    "w": 22.0,
+    "h": 22.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "35",
+    "name": "序号底03",
+    "kind": "sp",
+    "text": "",
+    "x": 654.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "36",
+    "name": "序号03",
+    "kind": "sp",
+    "text": "03",
+    "x": 654.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "37",
+    "name": "icon-tool-0",
+    "kind": "sp",
+    "text": "",
+    "x": 752.3,
+    "y": 206.8,
+    "w": 52.4,
+    "h": 36.6,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "38",
+    "name": "icon-tool-1",
+    "kind": "sp",
+    "text": "",
+    "x": 767.5,
+    "y": 193.0,
+    "w": 22.1,
+    "h": 13.8,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "40",
+    "name": "icon-tool-3",
+    "kind": "sp",
+    "text": "",
+    "x": 773.7,
+    "y": 216.4,
+    "w": 9.7,
+    "h": 11.7,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "41",
+    "name": "步骤名称2",
+    "kind": "sp",
+    "text": "执行处理",
+    "x": 663.0,
+    "y": 279.0,
+    "w": 254.0,
+    "h": 42.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "42",
+    "name": "步骤说明2",
+    "kind": "sp",
+    "text": "输入：已核对的资料\n动作：按业务规则处理\n输出：初稿与处理记录",
+    "x": 663.0,
+    "y": 342.0,
+    "w": 254.0,
+    "h": 140.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "44",
+    "name": "交接箭头",
+    "kind": "sp",
+    "text": "",
+    "x": 929.0,
+    "y": 306.0,
+    "w": 22.0,
+    "h": 22.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "45",
+    "name": "序号底04",
+    "kind": "sp",
+    "text": "",
+    "x": 955.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "46",
+    "name": "序号04",
+    "kind": "sp",
+    "text": "04",
+    "x": 955.0,
+    "y": 185.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "47",
+    "name": "icon-check-0",
+    "kind": "sp",
+    "text": "",
+    "x": 1056.7,
+    "y": 190.9,
+    "w": 45.5,
+    "h": 55.2,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "48",
+    "name": "icon-check-1",
+    "kind": "sp",
+    "text": "",
+    "x": 1065.7,
+    "y": 217.8,
+    "w": 10.4,
+    "h": 11.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "49",
+    "name": "icon-check-2",
+    "kind": "sp",
+    "text": "",
+    "x": 1076.0,
+    "y": 206.1,
+    "w": 18.6,
+    "h": 22.8,
+    "editable_text": false,
+    "editable_geometry": false,
+    "locked": true
+   },
+   {
+    "shape_id": "50",
+    "name": "步骤名称3",
+    "kind": "sp",
+    "text": "核对交付",
+    "x": 964.0,
+    "y": 279.0,
+    "w": 254.0,
+    "h": 42.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "51",
+    "name": "步骤说明3",
+    "kind": "sp",
+    "text": "输入：初稿及依据\n动作：人工复核与修订\n输出：确认后的成果",
+    "x": 964.0,
+    "y": 342.0,
+    "w": 254.0,
+    "h": 140.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "53",
+    "name": "异常",
+    "kind": "sp",
+    "text": "异常处理：材料缺失时列出补充项；权限不足时转交责任人；结果核实后再交付。",
+    "x": 64.0,
+    "y": 553.0,
+    "w": 1152.0,
+    "h": 56.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "54",
+    "name": "结论底",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 638.0,
+    "w": 1176.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "55",
+    "name": "结论",
+    "kind": "sp",
+    "text": "每一步都有可检查的输出，最终成果保留依据与复核记录",
+    "x": 72.0,
+    "y": 645.0,
+    "w": 1136.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   }
+  ],
+  "9": [
+   {
+    "shape_id": "40",
+    "name": "淡城市0",
+    "kind": "sp",
+    "text": "",
+    "x": 920.0,
+    "y": 577.0,
+    "w": 22.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "2",
+    "name": "淡城市1",
+    "kind": "sp",
+    "text": "",
+    "x": 952.0,
+    "y": 549.0,
+    "w": 22.0,
+    "h": 76.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "3",
+    "name": "淡城市2",
+    "kind": "sp",
+    "text": "",
+    "x": 984.0,
+    "y": 521.0,
+    "w": 22.0,
+    "h": 104.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "4",
+    "name": "淡城市3",
+    "kind": "sp",
+    "text": "",
+    "x": 1016.0,
+    "y": 567.0,
+    "w": 22.0,
+    "h": 58.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "5",
+    "name": "淡城市4",
+    "kind": "sp",
+    "text": "",
+    "x": 1048.0,
+    "y": 537.0,
+    "w": 22.0,
+    "h": 88.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "6",
+    "name": "淡城市5",
+    "kind": "sp",
+    "text": "",
+    "x": 1080.0,
+    "y": 493.0,
+    "w": 22.0,
+    "h": 132.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "7",
+    "name": "淡城市6",
+    "kind": "sp",
+    "text": "",
+    "x": 1112.0,
+    "y": 563.0,
+    "w": 22.0,
+    "h": 62.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "8",
+    "name": "淡城市7",
+    "kind": "sp",
+    "text": "",
+    "x": 1144.0,
+    "y": 527.0,
+    "w": 22.0,
+    "h": 98.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "9",
+    "name": "淡城市8",
+    "kind": "sp",
+    "text": "",
+    "x": 1176.0,
+    "y": 555.0,
+    "w": 22.0,
+    "h": 70.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "10",
+    "name": "淡城市9",
+    "kind": "sp",
+    "text": "",
+    "x": 1208.0,
+    "y": 581.0,
+    "w": 22.0,
+    "h": 44.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "12",
+    "name": "对象12",
+    "kind": "pic",
+    "text": "",
+    "x": 27.0,
+    "y": 17.0,
+    "w": 54.0,
+    "h": 40.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "13",
+    "name": "标题",
+    "kind": "sp",
+    "text": "案例机制与证据",
+    "x": 98.0,
+    "y": 20.0,
+    "w": 1000.0,
+    "h": 48.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "14",
+    "name": "页码",
+    "kind": "sp",
+    "text": "09",
+    "x": 1158.0,
+    "y": 27.0,
+    "w": 70.0,
+    "h": 35.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "16",
+    "name": "导语",
+    "kind": "sp",
+    "text": "以资料核对为示例，串联任务、处理机制、交付物与复核证据",
+    "x": 52.0,
+    "y": 99.0,
+    "w": 1176.0,
+    "h": 43.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "17",
+    "name": "案例任务",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 173.0,
+    "w": 350.0,
+    "h": 419.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "18",
+    "name": "案例标记",
+    "kind": "sp",
+    "text": "示例任务",
+    "x": 77.0,
+    "y": 196.0,
+    "w": 300.0,
+    "h": 37.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "19",
+    "name": "icon-document-0",
+    "kind": "sp",
+    "text": "",
+    "x": 191.0,
+    "y": 265.0,
+    "w": 60.0,
+    "h": 80.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "23",
+    "name": "案例描述",
+    "kind": "sp",
+    "text": "业务人员准备一份汇报材料，\n需要核对引用段落及文件版本。\n\n输入：待审稿与已授权资料。\n目标：形成可回查的核对记录。",
+    "x": 77.0,
+    "y": 377.0,
+    "w": 300.0,
+    "h": 169.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "24",
+    "name": "序号底01",
+    "kind": "sp",
+    "text": "",
+    "x": 450.0,
+    "y": 183.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "25",
+    "name": "序号01",
+    "kind": "sp",
+    "text": "01",
+    "x": 450.0,
+    "y": 183.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "26",
+    "name": "定位依据",
+    "kind": "sp",
+    "text": "定位依据",
+    "x": 510.0,
+    "y": 180.0,
+    "w": 700.0,
+    "h": 39.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "27",
+    "name": "定位依据机制",
+    "kind": "sp",
+    "text": "按待审稿逐项查找原文，记录文件、页码与版本。",
+    "x": 510.0,
+    "y": 227.0,
+    "w": 694.0,
+    "h": 69.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "29",
+    "name": "序号底02",
+    "kind": "sp",
+    "text": "",
+    "x": 450.0,
+    "y": 320.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "30",
+    "name": "序号02",
+    "kind": "sp",
+    "text": "02",
+    "x": 450.0,
+    "y": 320.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "31",
+    "name": "检查差异",
+    "kind": "sp",
+    "text": "检查差异",
+    "x": 510.0,
+    "y": 317.0,
+    "w": 700.0,
+    "h": 39.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "32",
+    "name": "检查差异机制",
+    "kind": "sp",
+    "text": "核对数字、名称、适用范围，列出缺失或不一致项。",
+    "x": 510.0,
+    "y": 364.0,
+    "w": 694.0,
+    "h": 69.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "34",
+    "name": "序号底03",
+    "kind": "sp",
+    "text": "",
+    "x": 450.0,
+    "y": 457.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "35",
+    "name": "序号03",
+    "kind": "sp",
+    "text": "03",
+    "x": 450.0,
+    "y": 457.0,
+    "w": 36.0,
+    "h": 36.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "36",
+    "name": "复核交付",
+    "kind": "sp",
+    "text": "复核交付",
+    "x": 510.0,
+    "y": 454.0,
+    "w": 700.0,
+    "h": 39.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "37",
+    "name": "复核交付机制",
+    "kind": "sp",
+    "text": "由责任人确认修改，交付引用清单及修订后的稿件。",
+    "x": 510.0,
+    "y": 501.0,
+    "w": 694.0,
+    "h": 69.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "38",
+    "name": "结论底",
+    "kind": "sp",
+    "text": "",
+    "x": 52.0,
+    "y": 638.0,
+    "w": 1176.0,
+    "h": 48.0,
+    "editable_text": false,
+    "editable_geometry": true,
+    "locked": false
+   },
+   {
+    "shape_id": "39",
+    "name": "结论",
+    "kind": "sp",
+    "text": "示例用于说明组织方法；正式案例需补齐项目来源、实施记录与实际结果",
+    "x": 72.0,
+    "y": 645.0,
+    "w": 1136.0,
+    "h": 32.0,
+    "editable_text": true,
+    "editable_geometry": true,
+    "locked": false
+   }
+  ]
+ },
+ "projects": [
+  {
+   "id": "project-20261011-001",
+   "title": "企业服务平台建设方案汇报",
+   "file": "output/deck-v0003.pptx",
+   "pages": 12,
+   "sha256": "a3f8c2e1…9d04",
+   "style": "green-clean-business",
+   "engine": "WPS 12.0",
+   "status": "rendered_pending_review",
+   "status_label": "待视觉检查",
+   "version": "v0003",
+   "updated": "2026-10-11 09:42",
+   "next_action": "打开画布进行视觉检查",
+   "checks": {
+    "structural": "pass",
+    "render": "pass",
+    "visual_review": "pending",
+    "editability": "pass",
+    "user_acceptance": "pending"
+   }
+  },
+  {
+   "id": "project-20261009-004",
+   "title": "社群运营协作机制介绍",
+   "file": "output/deck-v0001.pptx",
+   "pages": 8,
+   "sha256": "77be01cd…41aa",
+   "style": "green-office-illustrated",
+   "engine": "WPS 12.0",
+   "status": "filled_pending_render",
+   "status_label": "待渲染",
+   "version": "v0001",
+   "updated": "2026-10-09 18:20",
+   "next_action": "渲染整套并检查页面问题",
+   "checks": {
+    "structural": "pass",
+    "render": "pending",
+    "visual_review": "pending",
+    "editability": "pending",
+    "user_acceptance": "pending"
+   }
+  }
+ ]
+}

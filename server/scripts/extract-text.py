@@ -1,133 +1,66 @@
 #!/usr/bin/env python3
-"""extract-text.py —— OOXML 材料正文提取（纯标准库，零依赖）。
-
-用法：python3 extract-text.py <file> [maxchars]
-输出：成功时 stdout 打印 {"ok": true, "text": "...", "chars": N, "truncated": bool}；
-      失败时 stderr 打印 {"error": "..."}（与 studio.py 输出约定一致）。
-支持：.docx/.docm（word/document.xml 段落）、
-      .pptx/.ppsx/.potx/.pptm（ppt/slides/slideN.xml 逐页）、
-      .xlsx/.xlsm（xl/sharedStrings.xml 共享字符串）。
-原则：只读 zip 内的 XML 部件，不执行任何公式/宏/外链；不虚构内容。
-"""
-import json
-import re
-import sys
-import zipfile
+"""Extract complete text with source locators; never execute formulas or macros."""
+import json, sys, zipfile, posixpath, subprocess
+from pathlib import Path
 import xml.etree.ElementTree as ET
-
-MAX_DEFAULT = 60000
-
-KINDS = {
-    ".docx": "docx", ".docm": "docx",
-    ".pptx": "pptx", ".ppsx": "pptx", ".potx": "pptx", ".pptm": "pptx",
-    ".xlsx": "xlsx", ".xlsm": "xlsx",
-}
-
-
-def fail(msg):
-    print(json.dumps({"error": msg}, ensure_ascii=False), file=sys.stderr)
-    sys.exit(1)
-
-
-def local(tag):
-    return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
-
-
-def para_lines(root):
-    """按段落（w:p / a:p）聚合文本子节点（w:t / a:t），返回非空行列表。"""
-    lines = []
-    for p in root.iter():
-        if local(p.tag) != "p":
-            continue
-        buf = []
-        for t in p.iter():
-            if local(t.tag) == "t" and t.text:
-                buf.append(t.text)
-        line = "".join(buf).strip()
-        if line:
-            lines.append(line)
-    return lines
-
-
-def extract_docx(z):
-    try:
-        root = ET.fromstring(z.read("word/document.xml"))
-    except KeyError:
-        fail("docx 缺少 word/document.xml 正文部件")
-    return "\n".join(para_lines(root))
-
-
-def extract_pptx(z):
-    slides = []
-    for name in z.namelist():
-        m = re.match(r"^ppt/slides/slide(\d+)\.xml$", name)
-        if m:
-            slides.append((int(m.group(1)), name))
-    if not slides:
-        fail("pptx 缺少 ppt/slides/slideN.xml 幻灯片部件")
-    slides.sort(key=lambda x: x[0])
-    parts = []
-    for n, name in slides:
-        root = ET.fromstring(z.read(name))
-        parts.append("【第%d页】%s" % (n, "；".join(para_lines(root))))
-    return "\n".join(parts)
-
-
-def extract_xlsx(z):
-    try:
-        root = ET.fromstring(z.read("xl/sharedStrings.xml"))
-    except KeyError:
-        fail("xlsx 缺少 xl/sharedStrings.xml 字符串表部件")
-    vals = []
-    for si in root.iter():
-        if local(si.tag) != "si":
-            continue
-        buf = []
-        for t in si.iter():
-            if local(t.tag) == "t" and t.text:
-                buf.append(t.text)
-        s = "".join(buf).strip()
-        if s:
-            vals.append(s)
-    return "\n".join(vals)
-
-
+def local(tag): return tag.rsplit("}",1)[-1]
+def text(node): return "".join(t.text or "" for t in node.iter() if local(t.tag) == "t")
+def relationships(z, part):
+    relpath = posixpath.join(posixpath.dirname(part), "_rels", posixpath.basename(part)+".rels")
+    root = ET.fromstring(z.read(relpath))
+    return {r.attrib["Id"]:posixpath.normpath(posixpath.join(posixpath.dirname(part),r.attrib["Target"])) if not r.attrib["Target"].startswith("/") else r.attrib["Target"].lstrip("/") for r in root}
+def rid(node): return next((v for k,v in node.attrib.items() if k.endswith("}id")),None)
+def extract(source):
+    ext = Path(source).suffix.lower()
+    blocks = []
+    if ext == ".pdf":
+        p = subprocess.run(["pdftotext","-layout",source,"-"],capture_output=True,text=True,timeout=60)
+        if p.returncode: raise ValueError("PDF 提取失败（损坏或加密）："+p.stderr.strip())
+        for i, page in enumerate(p.stdout.split("\f"),1):
+            if page.strip(): blocks.append({"locator":"PDF 第%d页"%i,"text":page.strip()})
+        if not blocks: raise ValueError("PDF 没有可提取正文，扫描件需要 OCR")
+        return blocks
+    with zipfile.ZipFile(source) as z:
+        if ext in (".docx",".docm"):
+            root = ET.fromstring(z.read("word/document.xml"))
+            for i,p in enumerate((n for n in root.iter() if local(n.tag) == "p"),1):
+                value=text(p).strip()
+                if value: blocks.append({"locator":"DOCX 段落%d"%i,"text":value})
+        elif ext in (".pptx",".pptm",".potx",".ppsx"):
+            part = "ppt/presentation.xml"
+            root = ET.fromstring(z.read(part)); rels=relationships(z,part)
+            for i,slide in enumerate((n for n in root.iter() if local(n.tag)=="sldId"),1):
+                doc=ET.fromstring(z.read(rels[rid(slide)]))
+                value="\n".join(text(p) for p in doc.iter() if local(p.tag)=="p")
+                blocks.append({"locator":"PPTX 第%d页"%i,"text":value})
+        elif ext in (".xlsx",".xlsm"):
+            shared=[]
+            if "xl/sharedStrings.xml" in z.namelist(): shared=[text(si) for si in ET.fromstring(z.read("xl/sharedStrings.xml"))]
+            root=ET.fromstring(z.read("xl/workbook.xml")); rels=relationships(z,"xl/workbook.xml")
+            for sheet in (n for n in root.iter() if local(n.tag)=="sheet"):
+                doc=ET.fromstring(z.read(rels[rid(sheet)])); name=sheet.attrib["name"]
+                for row in (n for n in doc.iter() if local(n.tag)=="row"):
+                    cells=[]
+                    for cell in row:
+                        if local(cell.tag)!="c": continue
+                        value=next((v.text or "" for v in cell if local(v.tag)=="v"),"")
+                        kind=cell.attrib.get("t")
+                        if kind=="s" and value: value=shared[int(value)]
+                        elif kind=="inlineStr": value=text(cell)
+                        elif kind=="b": value="TRUE" if value=="1" else "FALSE"
+                        formula=next((v.text or "" for v in cell if local(v.tag)=="f"),None)
+                        if formula is not None and not value: value="[公式无缓存值]"
+                        cells.append(cell.attrib.get("r","?")+"="+value)
+                    if cells: blocks.append({"locator":"工作表「%s」行%s"%(name,row.attrib.get("r","?")),"text":" | ".join(cells)})
+        else: raise ValueError("不支持的格式："+ext)
+    return blocks
 def main():
-    if len(sys.argv) < 2:
-        fail("用法: extract-text.py <file> [maxchars]")
-    path = sys.argv[1]
     try:
-        maxchars = int(sys.argv[2]) if len(sys.argv) > 2 else MAX_DEFAULT
-    except ValueError:
-        maxchars = MAX_DEFAULT
-    ext = "." + path.rsplit(".", 1)[-1].lower() if "." in path else ""
-    kind = KINDS.get(ext)
-    if not kind:
-        fail("不支持的扩展名: %s（支持 docx/pptx/xlsx 系）" % ext)
-    try:
-        z = zipfile.ZipFile(path)
-    except zipfile.BadZipFile:
-        fail("不是有效的 OOXML 压缩包（旧版二进制格式请另存为 .docx/.pptx/.xlsx 后重传）")
-    except RuntimeError:
-        fail("文件已加密，无法提取")
-    except OSError as e:
-        fail("无法读取文件: %s" % e)
-    with z:
-        try:
-            text = {"docx": extract_docx, "pptx": extract_pptx, "xlsx": extract_xlsx}[kind](z)
-        except ET.ParseError:
-            fail("内部 XML 解析失败（文件可能已损坏）")
-        except RuntimeError:
-            fail("文件已加密，无法提取")
-    text = (text or "").strip()
-    if not text:
-        fail("未提取到文本内容（可能是纯图片/扫描文档）")
-    full = len(text)
-    truncated = full > maxchars
-    if truncated:
-        text = text[:maxchars]
-    print(json.dumps({"ok": True, "text": text, "chars": full, "truncated": truncated}, ensure_ascii=False))
-
-
-if __name__ == "__main__":
-    main()
+        blocks=extract(sys.argv[1])
+        body="\n".join("【"+b["locator"]+"】"+b["text"] for b in blocks)
+        if not body.strip(): raise ValueError("没有可提取正文，图片材料需要 OCR")
+        maximum=int(sys.argv[2]) if len(sys.argv)>2 else 0
+        print(json.dumps({"ok":True,"text":body[:maximum] if maximum>0 else body,"chars":len(body),"truncated":maximum>0 and len(body)>maximum,"blocks":blocks},ensure_ascii=False))
+    except Exception as e:
+        print(json.dumps({"error":str(e)},ensure_ascii=False),file=sys.stderr); sys.exit(1)
+if __name__=="__main__": main()

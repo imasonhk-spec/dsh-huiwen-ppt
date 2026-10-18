@@ -8,6 +8,7 @@ import fsp from 'node:fs/promises';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { operationSignal } from './workflow.js';
 
 /** 文件 SHA256（小写 hex） */
 export function sha256File(p) {
@@ -84,7 +85,7 @@ export async function readJsonl(p) {
 export function runCmd(cmd, args, opts = {}) {
   const timeoutMs = opts.timeoutMs || 60000;
   return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: timeoutMs, windowsHide: true, maxBuffer: 32 * 1024 * 1024, cwd: opts.cwd },
+    execFile(cmd, args, { timeout: timeoutMs, windowsHide: true, maxBuffer: 32 * 1024 * 1024, cwd: opts.cwd, signal: opts.signal || operationSignal() },
       (err, stdout, stderr) => {
         resolve({ code: err ? (err.code ?? 1) : 0, err, stdout: stdout || '', stderr: stderr || '', killed: Boolean(err && err.killed) });
       });

@@ -11,7 +11,7 @@ import { readJson, writeJson, nowIso } from './util.js';
 export const DEFAULTS = {
   schema: 1,
   created_at: null,
-  dataDir: '/home/lgsj/Downloads/PPT Agent/huiwen-data',
+  dataDir: process.env.HUIWEN_DATA_DIR || '/home/lgsj/Downloads/PPT Agent/huiwen-data',
   skillDir: '/home/lgsj/Downloads/PPT Agent/extracted/huiwen-ppt',
   python: 'python3',
   render: {
@@ -20,6 +20,7 @@ export const DEFAULTS = {
     height: 720,
     dpi: 96,
     timeoutMs: 180000,
+    remote: { url: '', token: '' },
   },
   ollama: {
     base: 'http://127.0.0.1:11434',
@@ -48,6 +49,7 @@ export async function initConfig() {
     user = await readJson(cfgPath, {}) || {};
   }
   CONFIG = deepMerge(structuredClone(DEFAULTS), user);
+  if (process.env.HUIWEN_DATA_DIR) CONFIG.dataDir = process.env.HUIWEN_DATA_DIR;
   CONFIG.created_at = user.created_at || nowIso();
   if (!fs.existsSync(cfgPath)) await writeJson(cfgPath, CONFIG);
   return CONFIG;

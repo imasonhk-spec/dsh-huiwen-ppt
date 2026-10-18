@@ -1,7 +1,7 @@
 /**
  * 汇文 PPT 后端 · 对话编排（server/dialogue.js，WF-02/WF-03）
  * 主路：真模型（本机 Ollama；模型选择框按项目记忆）；
- * 兜底：剧本 + 规则引擎（模型不可用/超时/输出不合规时降级，方案 §5.3）。
+ * 模型失败如实报告，不生成替代内容。
  * 返回客户端消息卡片：{ role:'ai', kind:'text'|'outline'|'style'|'pages'|'result'|'export'|'archived'|'materials', text, payload }
  * 对话流持久化：projects/<id>/conversation.jsonl。
  */
@@ -10,11 +10,16 @@ import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { projectDir, loadProject, updateProjectMeta } from './projects.js';
 import { appendJsonl, readJsonl, nowIso, writeJson } from './util.js';
-import { resolveModel, chat } from './llm.js';
+import { resolveModel, chatJson } from './llm.js';
 import { loadBrief, saveBriefDraft, briefSummary, confirmBrief } from './brief.js';
 import { loadOutline, saveOutlineDraft, applyOutlineChanges, confirmOutline, outlineCardPayload } from './outline.js';
 import { listMaterials } from './materials.js';
 import { buildIndex, invalidateIndex } from './index-builder.js';
+import { materialDigest } from './material-analysis.js';
+import { inputFingerprint } from './dependencies.js';
+import { cancelProjectJobs } from './jobs.js';
+import { withProjectLock } from './workflow.js';
+import { config } from './config.js';
 
 const HISTORY_MAX = 24;
 
@@ -35,25 +40,6 @@ export async function ensureBriefApproved(projectId, confirmedBy = '用户', not
 /* ── LLM 提示词 ── */
 
 /* 材料正文摘要（0.3.3）：读取已提取的 .extract.txt，供大纲/访谈提示词引用——只读真实材料，不虚构 */
-async function materialDigest(projectId, perLimit = 1200, totalLimit = 6000) {
-  try {
-    const mats = await listMaterials(projectId);
-    const out = [];
-    let used = 0;
-    for (const m of mats) {
-      if (!m.text_extracted || used >= totalLimit) continue;
-      try {
-        const txt = await fsp.readFile(path.join(projectDir(projectId), m.file + '.extract.txt'), 'utf8');
-        const head = txt.replace(/\s+/g, ' ').trim().slice(0, perLimit);
-        if (!head) continue;
-        out.push({ name: m.name, digest: head });
-        used += head.length;
-      } catch { /* 提取文件缺失跳过 */ }
-    }
-    return out;
-  } catch { return []; }
-}
-
 function interviewSystem(brief, stage, materials, digest) {
   const midFlow = !['idle', 'material'].includes(stage);
   return [
@@ -62,7 +48,7 @@ function interviewSystem(brief, stage, materials, digest) {
     '已收集的需求摘要：' + JSON.stringify(briefSummary(brief) || {}),
     '已有材料：' + JSON.stringify((materials || []).map((m) => m.name)),
     ...(digest && digest.length
-      ? ['材料正文摘要（澄清问题与提取信息时优先引用材料事实，材料已覆盖的不要重复问用户）：' + JSON.stringify(digest.map((d) => ({ name: d.name, digest: d.digest.slice(0, 300) })))]
+      ? ['材料正文摘要（澄清问题与提取信息时优先引用材料事实，材料已覆盖的不要重复问用户）：' + JSON.stringify(digest)]
       : []),
     '规则：',
     '1. 每次回复只问一个最关键的问题（目标受众、使用场景、核心观点、内容与数据、页数或时长、材料范围、交付要求）；已明确的信息绝不重复问。',
@@ -76,7 +62,7 @@ function interviewSystem(brief, stage, materials, digest) {
   ].join('\n');
 }
 
-function outlineSystem(brief, relations, digest) {
+function outlineSystem(brief, relations, digest, batchRule) {
   return [
     '你是汇文 PPT 大纲规划师。根据需求摘要产出逐页大纲。',
     '需求摘要：' + JSON.stringify(briefSummary(brief) || {}),
@@ -86,7 +72,8 @@ function outlineSystem(brief, relations, digest) {
     '可用版式关系词（relation 必须从以下选择）：' + JSON.stringify(relations),
     '规则：',
     '1. 每页给出 title（≤20字）、purpose（一句话页面目的）、key_points（2-4 条关键信息，不虚构数字）、evidence（来源说明或空）、relation（从关系词表选择）。',
-    '2. 首页为封面，末页为收尾；总页数遵守需求里的页数（未指明则 8-10 页）。',
+    '2. ' + batchRule,
+    '原文中的预计、初步测算、计划、试点等限定词必须保留，禁止升级为实测或已完成。内容页逐页展开具体功能流程、技术细节和评价依据，避免把所有功能挤在同一页或反复重复同一个关系。',
     '3. 输出必须是 JSON 对象：{"pages": [...], "notes": "给用户的大纲说明（1-2 句）"}。',
   ].join('\n');
 }
@@ -103,33 +90,17 @@ function outlineTurnSystem(outline) {
   ].join('\n');
 }
 
-function parseJsonLoose(text) {
-  if (!text) return null;
-  const t = text.replace(/```json/gi, '```').split('```').map((s) => s.trim()).filter(Boolean);
-  const candidates = [text, ...t];
-  for (const c of candidates) {
-    const m = c.match(/\{[\s\S]*\}/);
-    if (!m) continue;
-    try { return JSON.parse(m[0]); } catch { /* 尝试下一个 */ }
-  }
-  return null;
+async function llmJson(model, system, messages, opts={}) {
+  return chatJson({model,system,messages,timeoutMs:opts.timeoutMs || 240000,maxTokens:opts.maxTokens},opts.validate);
 }
 
-async function llmJson(model, system, messages, opts) {
-  const content = await chat({
-    model, // 完整模型对象：按 channel 分发（ollama 原生 / DSH OpenAI-compatible）
-    system,
-    messages,
-    json: true,
-    timeoutMs: (opts && opts.timeoutMs) || 240000,
-  });
-  const parsed = parseJsonLoose(content);
-  if (!parsed) {
-    const e = new Error('模型输出不是合法 JSON');
-    e.code = 'LLM_BAD_OUTPUT';
-    throw e;
-  }
-  return parsed;
+function interviewIssue(value, initial) {
+  if (value.confidence == null && Number.isFinite(value.brief_updates?.confidence)) value.confidence = value.brief_updates.confidence;
+  if (value.brief_updates && !Array.isArray(value.brief_updates)) delete value.brief_updates.confidence;
+  const questions=typeof value.reply==='string' ? (value.reply.match(/[？?]/g)||[]).length : 0;
+  if (typeof value.reply!=='string' || !value.reply.trim() || questions>1) return 'reply 必须为非空回复，最多问一个问题';
+  if (value.brief_updates!=null && (typeof value.brief_updates!=='object' || Array.isArray(value.brief_updates))) return 'brief_updates 必须为字段对象';
+  if (initial && (!Number.isFinite(value.confidence) || value.confidence<0 || value.confidence>1 || (value.confidence<0.95 && questions!==1))) return 'confidence 必须在0–1之间；低于0.95时只能追问一个问题';
 }
 
 /* ── 消息构造 ── */
@@ -138,29 +109,43 @@ const aiText = (text) => ({ role: 'ai', kind: 'text', text });
 const aiCard = (kind, payload) => ({ role: 'ai', kind, payload: payload || {} });
 
 export async function persist(projectId, entries) {
+  const { meta } = await loadProject(projectId);
   for (const en of entries) {
-    await appendJsonl(path.join(projectDir(projectId), 'conversation.jsonl'), { ...en, ts: nowIso() });
+    await appendJsonl(path.join(projectDir(projectId), 'conversation.jsonl'), { ...en, epoch: meta.epoch || 0, ts: nowIso() });
   }
 }
 
 async function history(projectId) {
   const all = await readJsonl(path.join(projectDir(projectId), 'conversation.jsonl'));
-  return all.slice(-HISTORY_MAX).map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text || '[卡片消息]' }));
+  const { meta } = await loadProject(projectId);
+  return all.filter((m)=>(m.epoch || 0)===(meta.epoch || 0)).slice(-HISTORY_MAX).map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text || JSON.stringify(m.payload || {}) }));
 }
 
 async function generateOutlineMessages(projectId, model, brief, ack) {
   const index = await buildIndex();
   const relations = [...new Set(index.layouts.map((l) => l.relation))];
-  const digest = await materialDigest(projectId); // 材料正文进大纲提示词（0.3.3）
+  const digest = await materialDigest(projectId, model);
   /* 大纲生成为重任务（大提示词 + 长 JSON 输出）：单独给足超时，一般对话不受影响 */
-  const parsed = await llmJson(model, outlineSystem(brief, relations, digest), [
-    { role: 'user', content: '请基于以上需求摘要生成逐页大纲。' },
-  ], { timeoutMs: 600000 });
-  const pages = Array.isArray(parsed.pages) && parsed.pages.length ? parsed.pages : [];
-  if (!pages.length) {
-    const e = new Error('模型未产出有效大纲页');
-    e.code = 'LLM_BAD_OUTPUT';
-    throw e;
+  const target = brief?.page_count ?? (JSON.stringify(digest).length>6000?12:8);
+  if (target != null && (!Number.isInteger(target) || target < 2 || target > config().limits.pagesMax)) throw Object.assign(new Error('页数必须为 2–'+config().limits.pagesMax), { code:'INVALID_OPERATION' });
+  const pages=[],notes=[];
+  for(let start=0;start<target;start+=4) {
+    const end=Math.min(start+4,target);
+    const batchRule='完整PPT共'+target+'页，本次只生成第'+(start+1)+'–'+end+'页，共'+(end-start)+'页。'+(start===0?'本批第1项是整份PPT封面，relation 必须为“封面”。':'本批不含封面。')+(end===target?'本批最后1项是整份PPT收尾，relation 必须为“收尾”。':'本批不含收尾。')+'其余页面禁止使用封面或收尾关系。';
+    const batchIssue=(value)=>{
+      if(!Array.isArray(value.pages) || value.pages.length!==end-start) return '本次 pages 必须恰好有'+(end-start)+'页（全稿第'+(start+1)+'–'+end+'页）';
+      for(let i=0;i<value.pages.length;i++) {
+        const p=value.pages[i],n=start+i+1;
+        if(!p || typeof p.title!=='string' || !p.title.trim() || !Array.isArray(p.key_points) || !p.key_points.length || p.key_points.some((point)=>typeof point!=='string'||!point.trim())) return '第'+n+'页必须有非空title和key_points';
+        if(n===1 && p.relation!=='封面') return '第1页 relation 必须为封面，当前为'+p.relation+'；请修正本批第一项';
+        if(n===target && p.relation!=='收尾') return '第'+target+'页 relation 必须为收尾；请修正本批最后一项';
+        if(n!==1 && n!==target && /封面|收尾|结尾|结束/.test(p.relation || '')) return '第'+n+'页为内容页，不能用封面或收尾关系';
+        if(!relations.includes(p.relation)) return '第'+n+'页 relation 必须从提供的关系词表选择';
+      }
+    };
+    const parsed=await llmJson(model,outlineSystem(brief,relations,digest,batchRule),[{role:'user',content:batchRule+'每页title不超过20字，purpose一句短句，key_points 2–4条，evidence只写简短来源，不重复抄写原文；保留数字和关键事实。已完成页面：'+JSON.stringify(pages.map((p)=>({title:p.title,key_points:p.key_points}))) }],{timeoutMs:600000,validate:batchIssue});
+    pages.push(...parsed.pages);
+    if(typeof parsed.notes==='string'&&parsed.notes.trim()) notes.push(parsed.notes);
   }
   const outline = await saveOutlineDraft(projectId, pages, { source: 'llm:' + model.tag });
   await updateProjectMeta(projectId, { stage: 'outline', next_action: '确认或调整大纲' });
@@ -168,7 +153,7 @@ async function generateOutlineMessages(projectId, model, brief, ack) {
     stage: 'outline',
     messages: [
       aiText(ack || '需求已经清楚了，我拟了一份大纲：'),
-      aiText('大纲说明：' + (parsed.notes || '共 ' + pages.length + ' 页。确认或告诉我怎么调整。')),
+          aiText('大纲说明：' + (notes.join('\n') || '共 ' + pages.length + ' 页。确认或告诉我怎么调整。')),
       aiCard('outline', { outline: outlineCardPayload(outline) }),
     ],
   };
@@ -198,11 +183,24 @@ export async function handleMessage(projectId, text, modelId, confirmedBy) {
   const histNoLast = hist.slice(0, -1); // 最新一条已作为现场消息传入
 
   /* 0.3.4.3：推翻重置是纯数据操作，不依赖大模型——任何模型状态下都能执行 */
-  let result = RESET_RE.test(text) ? await resetProjectFlow(projectId) : null;
+  const reset = resetIntent(text);
+  const newTheme = reset === 'reset' ? text.match(/(?:主题[是为：:]|改做|改成|这次做|换成|换个主题[：:]?)\s*(.+)/)?.[1]?.trim() : null;
+  let result = reset === 'reset' ? await resetProjectFlow(projectId) : reset === 'clarify' ? {stage,messages:[aiText('你是要清空当前制作内容并重新开始吗？')]} : null;
+
+  if (newTheme) {
+    const theme = newTheme.replace(/^[：:\s]+/, '').replace(/[。；;].*$/, '').trim();
+    if (theme) {
+      await saveBriefDraft(projectId, {title:theme});
+      await updateProjectMeta(projectId,{title:theme,stage:'material'});
+      result.stage='material';
+      result.messages=[aiText('已重新开始，当前主题：'+theme+'。这份 PPT 面向谁？')];
+    }
+  }
 
   /* 0.3.4.3：正式业务——材料分析与内容生成必须走大模型；模型不可用/调用失败时如实报错，不再降级本地剧本 */
   if (!result) {
     let modelError = null;
+    let errorCode = 'LLM_UNAVAILABLE';
     if (!model || !model.online) {
       modelError = model
         ? '大模型「' + model.label + '」当前不可用' + (model.reason ? '（' + model.reason + '）' : '')
@@ -211,20 +209,25 @@ export async function handleMessage(projectId, text, modelId, confirmedBy) {
       try {
         result = await realTurn(projectId, stage, model, text, histNoLast, brief, materials, confirmedBy);
       } catch (e) {
-        modelError = '大模型调用失败（' + (e && e.message ? e.message : e) + '）';
+        errorCode = e.code || 'LLM_FAILED';
+        modelError = (errorCode==='MATERIAL_SUMMARY_INVALID' ? '材料摘要校验失败（' : errorCode==='LLM_BAD_OUTPUT' ? '模型输出校验失败（' : '大模型调用失败（') + (e && e.message ? e.message : e) + '）';
         console.error('[huiwen-ppt] LLM 回合失败：', e.message);
       }
     }
     if (!result) {
       result = {
         stage,
-        messages: [aiText('⚠️ ' + modelError + '。正式生成需要大模型分析材料与内容——请检查模型服务（Ollama / DSH 同步模型）后重试；你刚才的话已记录，模型恢复后直接继续即可。')],
+        error: {code:errorCode,message:modelError,recoverable:true,next_actions:['retry']},
+        messages: [aiText('⚠️ ' + modelError + (errorCode==='MATERIAL_SUMMARY_INVALID'
+          ? '。模型已返回内容，但材料引用未通过原文核对，暂未继续制作。材料和你刚才的话已保留，请直接重试；仍失败时可换用其他模型。'
+          : errorCode==='LLM_BAD_OUTPUT' ? '。模型返回内容未满足本轮要求，暂未继续制作。你刚才的话已记录，请直接重试；仍失败时可换用其他模型。'
+          : '。正式生成需要大模型分析材料与内容——请检查模型服务（Ollama / DSH 同步模型）后重试；你刚才的话已记录，模型恢复后直接继续即可。'))],
       };
     }
   }
   if (reopened) result.messages.unshift(aiText('已为你重新打开项目（解除归档只读）✅。继续处理你刚才的指令：'));
 
-  await persist(projectId, result.messages.map((m) => ({ role: 'ai', kind: m.kind, text: m.text || '', stage: result.stage })));
+  await persist(projectId, result.messages.map((m) => ({ ...m, role: 'ai', text: m.text || '', stage: result.stage })));
   if (model) await updateProjectMeta(projectId, { dialogue_model: model.id });
   return { ...result, model: model ? { id: model.id, label: model.label, tag: model.tag, online: model.online } : null, fallback: false };
 }
@@ -233,7 +236,7 @@ export async function handleMessage(projectId, text, modelId, confirmedBy) {
 export function extractBriefSignals(text) {
   const t = String(text || '');
   const updates = {};
-  const mPage = t.match(/(\d{1,2})\s*页/);
+  const mPage = t.match(/(\d+)\s*页/);
   if (mPage) updates.page_count = parseInt(mPage[1], 10);
   /* 0.3.4.1：早期说的风格偏好记入 brief（风格确认动作只在大纲确认后发生，信息先不丢） */
   if (/插画|活泼|轻松/.test(t)) updates.style_preference = 'green-office-illustrated（插画活泼）';
@@ -273,11 +276,20 @@ function pruneEmpty(obj) {
 /* ── 0.3.4：推翻重来（无固定流程的终极自由——任何阶段可推翻全部重来） ── */
 
 const RESET_RE = /推翻|推倒重来|换个?主题|重新开始|从零开始|全部重来|重来一[次遍]|重来吧|重新做一[份个张]|不做这个了|全部清空/;
+export function resetIntent(text) {
+  if (!RESET_RE.test(text)) return 'none';
+  if (/(不要|别|不想|无需|不能|先不|不需要|不打算|不是要)[^，。；!?！？]{0,30}(推翻|重来|重新开始|清空|换.*主题)/.test(text)) return 'none';
+  if (/[「“"].*(推翻|重来|重新开始|清空).*?[」”"]|如果|是否|怎么|如何|意味着|是什么意思|能否/.test(text)) return 'clarify';
+  return 'reset';
+}
 
 /* 重置项目：清 需求/大纲/计划/风格/材料/版本/渲染/巡检报告；保留 对话历史/导出记录；回 idle。
    （纯函数：返回消息，不落盘对话——由 handleMessage 或 resetProject 包装层持久化） */
 export async function resetProjectFlow(projectId) {
+  await cancelProjectJobs(projectId);
+  return withProjectLock(projectId, async () => {
   const dir = projectDir(projectId);
+  const { meta } = await loadProject(projectId);
   let matCount = 0;
   try {
     const mats = await listMaterials(projectId);
@@ -285,8 +297,8 @@ export async function resetProjectFlow(projectId) {
   } catch { /* 材料注册表缺失按 0 处理 */ }
   const rm = (p) => fsp.rm(path.join(dir, p), { recursive: true, force: true }).catch(() => {});
   await Promise.all([
-    'brief.json', 'outline.json', 'plan.json', 'style-selection.json', 'build-plan.json',
-    'materials.json', 'state.json', 'sources', 'versions', 'renders',
+    'brief.json', 'outline.json', 'plan.json', 'style-selection.json', 'build-plan.json', 'slide-content.json',
+    'materials.json', 'state.json', 'sources', 'versions', 'renders', 'custom-template.pptx','custom-style.json','knowledge-facts.json','inspection.json','layout-preferences.json','sample-approval.json',
   ].map(rm));
   try {
     for (const f of await fsp.readdir(dir)) {
@@ -297,6 +309,7 @@ export async function resetProjectFlow(projectId) {
   await updateProjectMeta(projectId, {
     stage: 'idle', status: 'active', version: null, page_count: 0, plan_pages: 0,
     source_name: null, source_sha256: null, style_selection: null,
+    latest_report: null, active_job: null, epoch: (meta.epoch || 0)+1,
     checks: { structural: 'pending', render: 'pending', visual_review: 'pending', editability: 'pending', user_acceptance: 'pending' },
     next_action: '重新收集需求（一次一问）',
     title: '未命名汇报',
@@ -306,6 +319,7 @@ export async function resetProjectFlow(projectId) {
     stage: 'idle',
     messages: [aiText('已推翻重来 🔄\n已清空：需求摘要、大纲、风格、材料（' + matCount + ' 份）、版本与渲染；已保留：对话历史、导出记录。\n这次想做什么主题的 PPT？先用一句话告诉我主题即可——我会在正式生成前一次一个问题问清需求。')],
   };
+  });
 }
 
 /** API 重置（POST /projects/:id/reset）：重置并把提示落进对话历史 */
@@ -317,27 +331,28 @@ export async function resetProject(projectId) {
 
 async function realTurn(projectId, stage, model, text, hist, brief, materials, confirmedBy) {
   /* 0.3.4：推翻重来——任何阶段，识别即重置 */
-  if (RESET_RE.test(text)) return resetProjectFlow(projectId);
+  if (resetIntent(text) === 'reset') return resetProjectFlow(projectId);
 
   if (stage === 'idle' || stage === 'material') {
     const det = extractBriefSignals(text);
+    if (brief?.title && !/主题.{0,4}(改|换)|改.{0,4}主题/.test(text)) delete det.title;
     let llmUpdates = {};
     let replyText = null;
     let confidence = null;
     try {
-      const digest = await materialDigest(projectId, 600, 2000); // 访谈轮轻量注入材料摘要
+      const digest = await materialDigest(projectId, model);
       const parsed = await llmJson(model, interviewSystem(brief, stage, materials, digest), [
         ...hist,
         { role: 'user', content: text },
-      ]);
+      ],{validate:(value)=>interviewIssue(value,true)});
       replyText = typeof parsed.reply === 'string' ? parsed.reply : null;
       llmUpdates = pruneEmpty(parsed.brief_updates);
-      confidence = typeof parsed.confidence === 'number' ? Math.max(0, Math.min(1, parsed.confidence)) : (parsed.ready_for_outline ? 0.95 : null);
+      confidence = Number.isFinite(parsed.confidence) && parsed.confidence >= 0 && parsed.confidence <= 1 ? parsed.confidence : null;
     } catch (e) {
-      // LLM 失败：确定性提取继续，reply 用剧本话术
-      replyText = null;
+      throw e;
     }
-    const updates = { ...det, ...llmUpdates }; // LLM 同字段优先
+    if (!replyText || confidence === null || (replyText.match(/[？?]/g)||[]).length>1 || (confidence < 0.95 && (replyText.match(/[？?]/g)||[]).length!==1)) throw Object.assign(new Error('访谈输出缺少有效回复或违反一次一问约定'),{code:'LLM_BAD_OUTPUT'});
+    const updates = { ...llmUpdates, ...det };
     const merged = await saveBriefDraft(projectId, updates);
     if (!merged.title) merged.title = det.title || '未命名汇报';
     await updateProjectMeta(projectId, { stage: 'material', title: merged.title });
@@ -378,6 +393,7 @@ async function realTurn(projectId, stage, model, text, hist, brief, materials, c
     }
     /* chat 分支：顺带吸收确定性需求信号（中途变更需求），LLM 自由应答 */
     const det = pruneEmpty(extractBriefSignals(text));
+    if (brief?.title && !/主题.{0,4}(改|换)|改.{0,4}主题/.test(text)) delete det.title;
     if (Object.keys(det).length) await saveBriefDraft(projectId, det);
     return { stage: 'outline', messages: [aiText(String(parsed.reply || '可以告诉我怎么调整大纲，或回复「确认」进入风格选择。'))] };
   }
@@ -385,20 +401,22 @@ async function realTurn(projectId, stage, model, text, hist, brief, materials, c
   /* 0.3.4：制作中途（style/pages/done）的普通消息 = 需求变更或提问——访谈协议处理，不再 canned 提示 */
   if (stage === 'style' || stage === 'pages' || stage === 'done') {
     const det = pruneEmpty(extractBriefSignals(text));
+    if (brief?.title && !/主题.{0,4}(改|换)|改.{0,4}主题/.test(text)) delete det.title;
     let llmUpdates = {};
     let replyText = null;
     try {
-      const digest = await materialDigest(projectId, 600, 2000);
+      const digest = await materialDigest(projectId, model);
       const parsed = await llmJson(model, interviewSystem(brief, stage, materials, digest), [
         ...hist,
         { role: 'user', content: text },
-      ]);
+      ],{validate:(value)=>interviewIssue(value,false)});
       replyText = typeof parsed.reply === 'string' ? parsed.reply : null;
       llmUpdates = pruneEmpty(parsed.brief_updates);
     } catch (e) {
-      replyText = null;
+      throw e;
     }
-    const updates = { ...det, ...llmUpdates };
+    if (!replyText || (replyText.match(/[？?]/g)||[]).length>1) throw Object.assign(new Error('访谈回复违反响应约定'),{code:'LLM_BAD_OUTPUT'});
+    const updates = { ...llmUpdates, ...det };
     if (Object.keys(updates).length) {
       const merged = await saveBriefDraft(projectId, updates);
       if (merged.title && merged.title !== '未命名汇报') await updateProjectMeta(projectId, { title: merged.title });
@@ -442,7 +460,7 @@ export async function generateOutlineForProject(projectId, modelId, ack) {
   const model = await resolveModel(modelId || meta.dialogue_model);
   const brief = await loadBrief(projectId);
   const out = await generateOutlineMessages(projectId, model, brief, ack);
-  await persist(projectId, out.messages.map((m) => ({ role: 'ai', kind: m.kind, text: m.text || '', stage: out.stage })));
+  await persist(projectId, out.messages.map((m) => ({ ...m, role: 'ai', text: m.text || '', stage: out.stage })));
   if (model) await updateProjectMeta(projectId, { dialogue_model: model.id });
   return { ...out, model: { id: model.id, label: model.label, tag: model.tag, online: model.online } };
 }

@@ -7,6 +7,7 @@ import { config } from './config.js';
 import { runCmd } from './util.js';
 import { libreOfficeVersion } from './render.js';
 import { listOllamaModels } from './llm.js';
+import { windowsHealth } from './windows-render.js';
 
 let CACHED = null;
 let CACHED_AT = 0;
@@ -21,6 +22,7 @@ export async function engineMatrix(force = false) {
     listOllamaModels().catch(() => null),
   ]);
   const pyVer = ((py.stdout || py.stderr || '').match(/Python\s+([\d.]+)/) || [])[1] || null;
+  const windows=await windowsHealth();
   const matrix = {
     probed_at: new Date().toISOString(),
     structural: {
@@ -31,8 +33,8 @@ export async function engineMatrix(force = false) {
     },
     render: {
       libreoffice: { available: Boolean(lo), version: lo, role: '服务器内预览渲染（PNG）' },
-      wps: { available: false, version: null, role: '人工验收：导出 PPTX 后由用户在 Windows 用 WPS 打开', platform: 'windows-only' },
-      powerpoint: { available: false, version: null, role: '可选兼容性适配器', platform: 'windows-only' },
+      wps: { ...windows.wps, reason:windows.reason || null, role:'Windows 远端渲染',verified:false },
+      powerpoint: { ...windows.powerpoint, reason:windows.reason || null, role:'Windows 远端渲染',verified:false },
     },
     llm: {
       available: Boolean(ollama),

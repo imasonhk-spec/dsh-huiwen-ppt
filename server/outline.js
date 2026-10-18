@@ -8,6 +8,7 @@
 import path from 'node:path';
 import { readJson, writeJson, nowIso } from './util.js';
 import { projectDir } from './projects.js';
+import { inputFingerprint } from './dependencies.js';
 
 export async function loadOutline(id) {
   return readJson(path.join(projectDir(id), 'outline.json'), null);
@@ -18,13 +19,14 @@ export async function saveOutlineDraft(id, pages, meta = {}) {
   const next = {
     pages: (pages || []).map((p, i) => ({
       n: i + 1,
-      title: String(p.title || '未命名页').slice(0, 60),
-      purpose: String(p.purpose || '').slice(0, 200),
-      key_points: Array.isArray(p.key_points) ? p.key_points.map((k) => String(k).slice(0, 160)).slice(0, 6) : [],
-      evidence: String(p.evidence || '').slice(0, 200),
+      title: String(p.title || '未命名页'),
+      purpose: String(p.purpose || ''),
+      key_points: Array.isArray(p.key_points) ? p.key_points.map(String) : [],
+      evidence: typeof p.evidence === 'string' ? p.evidence : JSON.stringify(p.evidence || ''),
       relation: String(p.relation || p.rel || '内容页').slice(0, 24),
     })),
-    approvals: (cur && cur.approvals) || {},
+    approvals: {},
+    input_fingerprint: await inputFingerprint(id),
     revisions: [...((cur && cur.revisions) || []), { at: nowIso(), source: meta.source || 'draft', count: (pages || []).length }],
     updated_at: nowIso(),
   };
@@ -46,7 +48,7 @@ export async function applyOutlineChanges(id, changes) {
     const op = ch.op;
     if (op === 'add') {
       const at = Math.max(0, Math.min(pages.length, Number(ch.after || pages.length)));
-      pages.splice(at, 0, { n: 0, title: ch.title || '新增页', purpose: ch.purpose || '', key_points: [], evidence: '', relation: ch.relation || '内容页' });
+      pages.splice(at, 0, { n: 0, title: ch.title || '新增页', purpose: ch.purpose || '', key_points: Array.isArray(ch.key_points) ? ch.key_points.map(String) : [], evidence: ch.evidence || '', relation: ch.relation || '内容页' });
       applied.push({ op, at });
     } else if (op === 'remove') {
       const idx = Number(ch.index) - 1;
@@ -62,8 +64,10 @@ export async function applyOutlineChanges(id, changes) {
       const idx = Number(ch.index) - 1;
       if (idx >= 0 && idx < pages.length) {
         const p = pages[idx];
-        if (ch.title) p.title = String(ch.title).slice(0, 60);
-        if (ch.purpose) p.purpose = String(ch.purpose).slice(0, 200);
+        if (ch.title != null) p.title = String(ch.title);
+        if (ch.purpose != null) p.purpose = String(ch.purpose);
+        if (ch.key_points != null) { if (!Array.isArray(ch.key_points)) throw new Error('key_points 必须为数组'); p.key_points = ch.key_points.map(String); }
+        if (ch.evidence != null) p.evidence = String(ch.evidence);
         if (ch.relation) p.relation = String(ch.relation).slice(0, 24);
         applied.push({ op, index: ch.index });
       }

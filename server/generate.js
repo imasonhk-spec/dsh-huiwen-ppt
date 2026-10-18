@@ -1,215 +1,205 @@
-/**
- * 汇文 PPT 后端 · 生成编排（server/generate.js，WF-06）
- * plan.json → studio.py build（样张/正式两阶段门禁）→ LibreOffice 渲染 PNG → 巡检与报告。
- * 内容填充：版式 inspection 的可编辑文本形状，确定性规则（标题/正文要点直填，不虚构）。
- * 任务走 jobs 框架（可取消、断点标记、步骤进度）。
- */
-
 import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { config } from './config.js';
 import { projectDir, loadProject, updateProjectMeta } from './projects.js';
-import { readJson, writeJson, sha256File, nowIso, apiError } from './util.js';
+import { readJson, writeJson, sha256File, nowIso, apiError, stableHash } from './util.js';
 import { studio as studioRun, buildDeck } from './studio.js';
 import { renderPptxToPngs } from './render.js';
-import { buildIndex } from './index-builder.js';
+import { buildIndex, invalidateIndex } from './index-builder.js';
 import { getPlan } from './planner.js';
 import { loadOutline } from './outline.js';
 import { loadBrief } from './brief.js';
-import { createJob, getJob, startJob, setStep } from './jobs.js';
-
-export const GEN_STEPS = ['准备构建操作', '构建 PPTX', 'LibreOffice 渲染', '巡检与报告'];
-
-/* 家族 → 已批准模板目录（动态扫描 manifest，避免硬编码 id） */
-async function resolveTemplateDir(family) {
-  const root = path.join(config().dataDir, 'library', 'templates');
-  const want = { 'green-clean-business': '绿色简洁商务', 'green-office-illustrated': '绿色办公插画' }[family];
-  if (!want) throw apiError('INVALID_OPERATION', '未知风格家族：' + family);
-  const dirs = (await fsp.readdir(root, { withFileTypes: true })).filter((d) => d.isDirectory());
-  for (const d of dirs) {
-    const m = await readJson(path.join(root, d.name, 'manifest.json'), null);
-    if (m && (m.name === want || m.family === family)) {
-      if (m.status !== 'approved') {
-        throw apiError('TEMPLATE_NOT_APPROVED', '模板未批准：' + d.name);
-      }
-      return path.join(root, d.name);
+import { createJob, getJob, startJob, setStep, listJobs } from './jobs.js';
+import { withProjectLock, checkCancelled, beginCommit, markCommitted, operationJob } from './workflow.js';
+import { planFingerprint } from './dependencies.js';
+import { generateSlideContent, detailedOperations, textBoxSize } from './slide-content.js';
+export const GEN_STEPS = ['生成逐页正文与构建操作','构建 PPTX','结构巡检','渲染预览与报告'];
+export async function resolveTemplateDir(family) {
+  const root=path.join(config().dataDir,'library','templates');
+  const names={'green-clean-business':'绿色简洁商务','green-office-illustrated':'绿色办公插画'};
+  for (const dir of await fsp.readdir(root)) {
+    const m=await readJson(path.join(root,dir,'manifest.json'),null);
+    if (m && (dir===family || m.id===family || m.name===names[family] || m.family===family)) {
+      if(m.status!=='approved') throw apiError('TEMPLATE_NOT_APPROVED','模板尚未批准：'+m.name);
+      const source=path.join(root,dir,'reference.pptx');
+      if(await sha256File(source)!==m.source_sha256) throw apiError('SOURCE_HASH_MISMATCH','模板原件发生变化');
+      return path.join(root,dir);
     }
   }
-  throw apiError('SOURCE_NOT_FOUND', '找不到风格对应的已批准模板：' + family);
+  throw apiError('SOURCE_NOT_FOUND','找不到已批准模板：'+family);
 }
-
-/* inspection.json → 该页可编辑文本形状（标题优先，跳过页码/日期类） */
-function textShapes(slide) {
-  const els = (slide.elements || []).filter((e) => e.editable_text && e.kind === 'sp');
-  const skip = /页码|日期|编号|序号|logo|版本|version/i;
-  const title = els.find((e) => /标题|题/.test(e.name || '')) || els[0] || null;
-  const rest = els.filter((e) => e !== title && !skip.test(e.name || ''));
-  return { title, rest };
-}
-
-/* 内容填充策略：标题 ← 页标题；其余形状 ← purpose / key_points（直填不虚构） */
-function fillOperations(page, slide, outIndex) {
-  const { title, rest } = textShapes(slide);
-  const ops = [];
-  const texts = [];
-  if (page.purpose) texts.push(page.purpose);
-  for (const k of page.key_points || []) texts.push(k);
-  if (title && page.title) {
-    ops.push({ op: 'set-text', slide: outIndex, shape_id: title.shape_id, text: String(page.title).slice(0, 60) });
+export function fillOperations(page, slide, outIndex, content) {
+  if(content) return detailedOperations(page,slide,outIndex,content);
+  const shapes=(slide.elements||[]).filter((e)=>e.editable_text && e.kind==='sp');
+  if(shapes.length<2) throw apiError('UNSUPPORTED_OBJECT','版式没有标题和正文文本字段，不能完整填充');
+  const title=shapes.find((e)=>/标题|题|title/i.test(e.name||''))||shapes[0];
+  const body=shapes.filter((e)=>e!==title && !/页码|日期|编号|logo|version/i.test(e.name||''));
+  if(!body.length) throw apiError('UNSUPPORTED_OBJECT','版式没有正文容量');
+  const lines=(page.key_points||[]).map(String);
+  const assigned=new Map(body.map((e)=>[e,[]]));
+  // Allocate whole points before rendering; a wide, shallow caption is not a full-page body.
+  const capacity=(e,text)=>{
+    const {width,height}=textBoxSize(e);
+    for(let size=18;size>=8;size-=0.25) {
+      const rows=text.split('\n').reduce((n,line)=>n+Math.max(1,Math.ceil([...line].reduce((w,c)=>w+(/[^\u0000-\u007f]/.test(c)?1:0.65),0)*size/width)),0);
+      if(rows*size*1.4<=height) return size;
+    }
+    return 0;
+  };
+  for(const line of [...lines].sort((a,b)=>b.length-a.length)) {
+    const candidates=body.map((e)=>({e,size:capacity(e,[...assigned.get(e),line].join('\n'))})).filter((c)=>c.size);
+    candidates.sort((a,b)=>b.size-a.size || assigned.get(a.e).length-assigned.get(b.e).length);
+    if(!candidates.length) throw apiError('UNSUPPORTED_OBJECT','第'+outIndex+'页正文超过模板容量，请调整内容或选择更大版式');
+    assigned.get(candidates[0].e).push(line);
   }
-  /* 0.3.3：材料派生文本直填更多正文形状（purpose/key_points 优先）；标题不兜底进正文（直填不虚构） */
-  rest.slice(0, 4).forEach((sh, i) => {
-    const text = texts[i] || '';
-    if (text) ops.push({ op: 'set-text', slide: outIndex, shape_id: sh.shape_id, text: String(text).slice(0, 120) });
-  });
+  const ops=shapes.map((e)=>({op:'set-text',slide:outIndex,shape_id:e.shape_id,text:e===title?String(page.title):(assigned.get(e)||[]).sort((a,b)=>lines.indexOf(a)-lines.indexOf(b)).join('\n')}));
+  // Unmapped sample tables/charts are removed, never represented as filled business data.
+  for(const e of slide.elements||[]) if(['table','chart'].includes(e.kind)) ops.push({op:'delete-shape',slide:outIndex,shape_id:e.shape_id});
   return ops;
 }
-
-/* 构建阶段准备：plan → studio build plan（含门禁与逐页操作） */
-export async function prepareBuildPlan(projectId, phase = 'sample') {
-  if (!['sample', 'final'].includes(phase)) throw apiError('INVALID_OPERATION', 'phase 必须是 sample 或 final');
-  const plan = await getPlan(projectId);
-  if (!plan) throw apiError('REQUIRED_FIELD_MISSING', '尚无执行计划，先完成 WF-05');
-  const brief = await loadBrief(projectId);
-  const outline = await loadOutline(projectId);
-  const requirements = brief && brief.approvals && brief.approvals.requirements;
-  const outlineApproval = outline && outline.approvals && outline.approvals.outline;
-  if (!requirements) throw apiError('REQUIRED_FIELD_MISSING', '需求摘要未确认（WF-02 门禁）');
-  if (!outlineApproval) throw apiError('REQUIRED_FIELD_MISSING', '大纲未确认（WF-03 门禁）');
-  const index = await buildIndex();
-  const layoutById = new Map(index.layouts.map((l) => [l.id, l]));
-  const slides = [];
-  for (const p of plan.pages) {
-    const lay = layoutById.get(p.layout_id);
-    if (!lay || lay.template_slide == null) {
-      throw apiError('UNSUPPORTED_OBJECT', '版式缺少模板页映射：' + p.layout_id);
+export async function prepareBuildPlan(projectId,phase='sample') {
+  if(!['sample','final'].includes(phase)) throw apiError('INVALID_OPERATION','phase 必须为 sample 或 final');
+  const plan=await getPlan(projectId);
+  if(!plan || plan.input_fingerprint!==await planFingerprint(projectId)) throw apiError('STATE_REVISION_CONFLICT','执行计划已过期，请更新计划');
+  const brief=await loadBrief(projectId),outline=await loadOutline(projectId);
+  const approvals={requirements:brief?.approvals?.requirements,outline:outline?.approvals?.outline};
+  if(!approvals.requirements || !approvals.outline) throw apiError('REQUIRED_FIELD_MISSING','需要自动补齐需求及大纲记录');
+  if(phase==='final') approvals.samples=await validateSampleApproval(projectId);
+  const index=await buildIndex(), slides=[], inspections=new Map();
+  for(const p of plan.pages) {
+    const lay=index.layouts.find((l)=>l.id===p.layout_id);
+    if(!lay || lay.approval!=='approved' || lay.pack==='reference_pack' || !lay.template_slide) throw apiError('UNSUPPORTED_OBJECT','版式不可生成：'+p.layout_id);
+    const dir=await resolveTemplateDir(lay.template_id || lay.family);
+    let insp=inspections.get(dir);
+    if(!insp) {
+      insp=await readJson(path.join(dir,'inspection.json'),null);
+      if(insp?.text_capacity_schema!==1) {
+        // Legacy inspections omit native insets; leave approved template files untouched.
+        const output=path.join(projectDir(projectId),'template-inspection-'+path.basename(dir)+'.json');
+        await studioRun(['inspect','--source',path.join(dir,'reference.pptx'),'--output',output]);
+        insp=await readJson(output,null);
+      }
+      inspections.set(dir,insp);
     }
-    const insp = await readJson(path.join(await resolveTemplateDir(lay.family), 'inspection.json'), null);
-    if (!insp) throw apiError('SOURCE_NOT_FOUND', '模板 inspection 缺失：' + lay.family);
-    /* 0.3.4.3 防御：版式页号越界（如历史索引数据）时按模板页数取模回落，生成不因此失败 */
-    const slidesArr = insp.slides || [];
-    if (!slidesArr.length) throw apiError('SOURCE_NOT_FOUND', '模板无可用页：' + lay.family);
-    const slide = slidesArr[((lay.template_slide - 1) % slidesArr.length + slidesArr.length) % slidesArr.length];
-    slides.push({ source_slide: lay.template_slide, operations: fillOperations(p, slide, plan.pages.indexOf(p) + 1) });
+    const slide=insp?.slides?.[lay.template_slide-1];
+    if(!slide) throw apiError('INVALID_OPERATION','模板页号越界：'+lay.template_slide);
+    if(lay.source_template_sha && lay.source_template_sha!==await sha256File(path.join(dir,'reference.pptx'))) throw apiError('SOURCE_HASH_MISMATCH','计划模板已变化');
+    const content=phase==='sample'?await generateSlideContent(projectId,p,slide):null;
+    slides.push({source_slide:lay.template_slide,source_template:dir,operations:fillOperations(p,slide,slides.length+1,content)});
+    if(operationJob()) setStep(operationJob(),0,Math.round(slides.length/plan.pages.length*35));
   }
-  const buildPlan = {
-    phase,
-    approvals: {
-      requirements: { confirmed_by: requirements.confirmed_by, note: requirements.note },
-      outline: { confirmed_by: outlineApproval.confirmed_by, note: outlineApproval.note },
-    },
-    slides,
-  };
-  await writeJson(path.join(projectDir(projectId), 'build-plan.json'), buildPlan);
-  return buildPlan;
+  const out={phase,approvals,slides};
+  await writeJson(path.join(projectDir(projectId),'build-plan.json'),out);
+  return out;
 }
-
 export async function nextVersionLabel(projectId) {
-  const vdir = path.join(projectDir(projectId), 'versions');
-  const files = fs.existsSync(vdir) ? (await fsp.readdir(vdir)).filter((f) => /^revision-\d+\.pptx$/.test(f)) : [];
-  const n = files.length + 1;
-  return { label: 'v' + String(n).padStart(4, '0'), file: 'revision-' + String(n).padStart(3, '0') + '.pptx' };
+  const dir=path.join(projectDir(projectId),'versions'); await fsp.mkdir(dir,{recursive:true});
+  const nums=(await fsp.readdir(dir)).map((f)=>f.match(/^revision-(\d+)\.pptx$/)?.[1]).filter(Boolean).map(Number);
+  const n=Math.max(0,...nums)+1;
+  return {label:'v'+String(n).padStart(4,'0'),file:'revision-'+String(n).padStart(3,'0')+'.pptx'};
 }
-
-/** 门禁预校验（同步抛出，让 HTTP 层直接返回 4xx 而不是异步任务失败） */
-async function assertGenerateGates(projectId) {
-  const plan = await getPlan(projectId);
-  if (!plan) throw apiError('REQUIRED_FIELD_MISSING', '尚无执行计划，先完成 WF-05');
-  const brief = await loadBrief(projectId);
-  if (!(brief && brief.approvals && brief.approvals.requirements)) {
-    throw apiError('REQUIRED_FIELD_MISSING', '需求摘要未确认（WF-02 门禁）');
-  }
-  const outline = await loadOutline(projectId);
-  if (!(outline && outline.approvals && outline.approvals.outline)) {
-    throw apiError('REQUIRED_FIELD_MISSING', '大纲未确认（WF-03 门禁）');
-  }
-  return plan;
+async function actualPlanHash(id) { return stableHash((await getPlan(id))?.pages || []); }
+export async function validateSampleApproval(id) {
+  const {meta}=await loadProject(id), approval=await readJson(path.join(projectDir(id),'sample-approval.json'),null);
+  if(!approval || approval.version!==meta.version || approval.sha256!==meta.source_sha256 || approval.input_fingerprint!==await planFingerprint(id) || approval.plan_hash!==await actualPlanHash(id)) throw apiError('REQUIRED_FIELD_MISSING','请先确认当前实际样张，再执行正式定稿');
+  return approval;
 }
-
-/** 发起生成任务（异步执行，客户端轮询 /jobs/:id） */
-export async function startGenerate(projectId, { phase = 'sample' } = {}) {
-  const { meta } = await loadProject(projectId);
-  if (meta.stage === 'generating') throw apiError('INVALID_OPERATION', '已有生成任务进行中');
-  await assertGenerateGates(projectId);
-  const job = createJob('generate', projectId, { phase });
-  const tplDirByFamily = {};
-  startJob(job, async (j) => {
-    await updateProjectMeta(projectId, { stage: 'generating', next_action: '生成中' });
-    try {
-      /* 1) 准备构建操作 */
-      setStep(j, 0);
-      const plan = await getPlan(projectId);
-      const fam = plan.style_selection.custom_style ? 'green-clean-business' : plan.style_selection.family; // 自定义风格沿用所选分支的通用版式
-      const tplDir = await resolveTemplateDir(fam);
-      tplDirByFamily[fam] = tplDir;
-      const buildPlan = await prepareBuildPlan(projectId, phase);
-
-      /* 2) 构建 PPTX */
-      setStep(j, 1);
-      const ver = await nextVersionLabel(projectId);
-      const outPptx = path.join(projectDir(projectId), 'versions', ver.file);
-      await buildDeck(tplDir, path.join(projectDir(projectId), 'build-plan.json'), outPptx);
-      const sha = await sha256File(outPptx);
-
-      /* 3)+4) 渲染 + 巡检 + 报告 + 状态推进（与修订链路共用） */
-      setStep(j, 2);
-      const out = await finalizeVersion(projectId, outPptx, { phase, label: ver.label, file: ver.file, expectedSlides: buildPlan.slides.length });
-      setStep(j, 3);
-      return { ...out, failed: out.report.structural !== 'pass' || out.report.render !== 'pass' };
-    } catch (e) {
-      await updateProjectMeta(projectId, { stage: 'pages', next_action: '重试生成（上次失败：' + String(e.message).slice(0, 40) + '）' }).catch(() => {});
-      throw e;
-    }
+export async function confirmSamples(id,{version,sha256,confirmed_by,note}={}) {
+  return withProjectLock(id,async()=>{
+    const {meta}=await loadProject(id);
+    if(!version || !sha256 || !confirmed_by || !note) throw apiError('REQUIRED_FIELD_MISSING','确认样张需要当前版本、SHA、确认人和说明');
+    if(version!==meta.version || sha256!==meta.source_sha256) throw apiError('SOURCE_HASH_MISMATCH','样张已变化，请重新查看');
+    const report=await readJson(path.join(projectDir(id),meta.latest_report || ''),null);
+    if(report?.render!=='pass' || report?.structural!=='pass') throw apiError('INVALID_OPERATION','样张尚未完整生成和渲染');
+    const record={version,sha256,confirmed_by,note,at:nowIso(),input_fingerprint:await planFingerprint(id),plan_hash:await actualPlanHash(id)};
+    await writeJson(path.join(projectDir(id),'sample-approval.json'),record); return record;
   });
-  return { job_id: job.id };
 }
-
+export async function startGenerate(projectId,{phase='sample'}={}) {
+  return withProjectLock(projectId,async()=>{
+    const {meta}=await loadProject(projectId);
+    if(listJobs(projectId).some((j)=>['queued','running'].includes(j.status))) throw apiError('INVALID_OPERATION','已有任务，请等待或取消');
+    if(phase==='final') await validateSampleApproval(projectId);
+    const plan=await getPlan(projectId); if(!plan) throw apiError('REQUIRED_FIELD_MISSING','尚无执行计划');
+    const fingerprint=await planFingerprint(projectId);
+    const job=createJob('generate',projectId,{phase,steps:GEN_STEPS});
+    await updateProjectMeta(projectId,{stage:'generating',active_job:job.id,next_action:'生成中'});
+    startJob(job,async(j)=>withProjectLock(projectId,async()=>{
+      let outPptx;
+      try {
+        checkCancelled(); setStep(j,0);
+        const buildPlan=await prepareBuildPlan(projectId,phase);
+        const ver=await nextVersionLabel(projectId);
+        outPptx=path.join(projectDir(projectId),'versions',ver.file);
+        setStep(j,1);
+        if(phase==='final') await fsp.copyFile(path.join(projectDir(projectId),'versions',meta.source_name),outPptx,fs.constants.COPYFILE_EXCL);
+        else await buildDeck(buildPlan.slides[0].source_template,path.join(projectDir(projectId),'build-plan.json'),outPptx);
+        checkCancelled(); setStep(j,2);
+        const requiredPages=phase==='sample'?plan.pages.map((p,i)=>({...p,key_points:buildPlan.slides[i].operations.filter(o=>['set-text','table-cell','insert-text'].includes(o.op)&&o.text).map(o=>o.text)})):null;
+        const result=await finalizeVersion(projectId,outPptx,{phase,label:ver.label,file:ver.file,expectedSlides:buildPlan.slides.length,expectedFingerprint:fingerprint,requiredPages});
+        setStep(j,3,99); return result;
+      } catch(e) {
+        if(outPptx && !j.committed) await discardUncommitted(projectId,outPptx);
+        await updateProjectMeta(projectId,{stage:meta.version?'done':'pages',active_job:null,next_action:'重试生成：'+e.message}).catch(()=>{});
+        throw e;
+      }
+    }));
+    return {job_id:job.id};
+  });
+}
 export { getJob };
-
-/** 渲染 + 巡检 + 报告 + 项目状态推进（生成与修订共用） */
-export async function finalizeVersion(projectId, outPptx, { phase, label, file, expectedSlides }) {
-  const renderDir = path.join(projectDir(projectId), 'renders', label);
-  const render = await renderPptxToPngs(outPptx, renderDir);
-  const sha = await sha256File(outPptx);
-  const inspPath = path.join(projectDir(projectId), 'inspection-' + label + '.json');
-  await studioRun(['inspect', '--source', outPptx, '--output', inspPath]);
-  const insp = await readJson(inspPath, {});
-  const slideCount = (insp.slides || []).length;
-  const editablePages = (insp.slides || []).filter((s) => (s.elements || []).some((e) => e.editable_text)).length;
-  const report = {
-    project_id: projectId,
-    version: label,
-    phase,
-    file: 'versions/' + file,
-    sha256: sha,
-    slide_count: slideCount,
-    editable_pages: editablePages,
-    engine: 'libreoffice',
-    engine_version: render.engine_version || null,
-    render: (render.files || []).length ? 'pass' : 'failed',
-    render_pngs: (render.files || []).map((f) => 'renders/' + label + '/' + f.file),
-    font_substitutions: (render.warnings || []).filter((w) => w.type === 'font_substitution').map((w) => w.note),
-    structural: expectedSlides ? (slideCount === expectedSlides ? 'pass' : 'failed') : 'pass',
-    checked_at: nowIso(),
-  };
-  await writeJson(path.join(projectDir(projectId), 'report-' + label + '.json'), report);
-  const failed = report.structural !== 'pass' || report.render !== 'pass';
-  await updateProjectMeta(projectId, {
-    stage: 'done',
-    version: label,
-    source_name: file,
-    source_sha256: sha,
-    page_count: slideCount,
-    next_action: failed ? '检查生成报告' : '画布审阅与修订',
-    checks: {
-      structural: report.structural,
-      render: report.render,
-      visual_review: 'pending',
-      editability: editablePages > 0 ? 'pass' : 'pending',
-      user_acceptance: 'pending',
-    },
-    latest_report: 'report-' + label + '.json',
+export async function discardUncommitted(id, pptx) {
+  const {meta,state}=await loadProject(id);
+  if(meta.source_name===path.basename(pptx)) return;
+  const n=path.basename(pptx).match(/revision-(\d+)/)?.[1];
+  const label='v'+String(Number(n)).padStart(4,'0');
+  await Promise.all([pptx,path.join(projectDir(id),'inspection-'+label+'.json'),path.join(projectDir(id),'report-'+label+'.json'),path.join(projectDir(id),'renders',label)].map(p=>fsp.rm(p,{recursive:true,force:true})));
+  const renders={...(state.renders||{})}; delete renders[label];
+  await writeJson(path.join(projectDir(id),'state.json'),{...state,renders});
+}
+export async function startRender(id) {
+  return withProjectLock(id,async()=>{
+    const {meta}=await loadProject(id);
+    if(!meta.version || !meta.source_name) throw apiError('INVALID_OPERATION','尚无可渲染版本');
+    if(listJobs(id).some((j)=>['queued','running'].includes(j.status))) throw apiError('INVALID_OPERATION','已有任务正在运行');
+    const job=createJob('render',id,{steps:GEN_STEPS});
+    startJob(job,async(j)=>withProjectLock(id,async()=>{setStep(j,2,50);return finalizeVersion(id,path.join(projectDir(id),'versions',meta.source_name),{phase:'preview',label:meta.version,file:meta.source_name,expectedSlides:meta.page_count});}));
+    return {job_id:job.id};
   });
-  return { version: label, file, sha256: sha, slide_count: slideCount, editable_pages: editablePages, report };
+}
+export async function finalizeVersion(projectId,outPptx,{phase,label,file,expectedSlides,expectedFingerprint,requiredPages}={}) {
+  return withProjectLock(projectId,async()=>{
+    checkCancelled();
+    const dir=projectDir(projectId), inspPath=path.join(dir,'inspection-'+label+'.json');
+    await studioRun(['inspect','--source',outPptx,'--output',inspPath]);
+    const insp=await readJson(inspPath,{}), slideCount=insp.slides?.length || 0;
+    if(!slideCount || (expectedSlides && slideCount!==expectedSlides)) throw apiError('INVALID_OPERATION','实际页数与计划不一致');
+    if(requiredPages) for(let i=0;i<requiredPages.length;i++) {
+      const text=(insp.slides[i].elements||[]).map((e)=>e.text||'').join('\n');
+      const missing=[requiredPages[i].title,...requiredPages[i].key_points].filter((t)=>!text.includes(t));
+      if(missing.length) throw apiError('INVALID_OPERATION','第'+(i+1)+'页缺少内容：'+missing.join('；'));
+      if(/构造的样式演示数据|不代表实际业务效果|示例业务数据/.test(text)) throw apiError('INVALID_OPERATION','输出仍包含模板示例文字');
+    }
+    if(operationJob()) setStep(operationJob(),3,75);
+    const render=await renderPptxToPngs(outPptx,path.join(dir,'renders',label));
+    if(render.files?.length!==slideCount) throw apiError('RENDER_FAILED','预览页数不完整');
+    checkCancelled();
+    if(expectedFingerprint && expectedFingerprint!==await planFingerprint(projectId)) throw apiError('STATE_REVISION_CONFLICT','生成输入已变化，未提交版本');
+    const sha=await sha256File(outPptx);
+    const report={project_id:projectId,version:label,phase,file:'versions/'+file,sha256:sha,slide_count:slideCount,
+      editable_pages:insp.slides.filter((s)=>s.elements.some((e)=>e.editable_text)).length,engine:render.engine,
+      engine_version:render.engine_version,render:'pass',render_pngs:render.files.map((f)=>'renders/'+label+'/'+f.file),
+      structural:'pass',content:requiredPages?'pass':'not_checked',checked_at:nowIso()};
+    await writeJson(path.join(dir,'report-'+label+'.json'),report);
+    beginCommit();
+    const {state}=await loadProject(projectId);
+    await writeJson(path.join(dir,'state.json'),{...state,revision:Number(label.slice(1)),current:'versions/'+file,current_sha256:sha,
+      renders:{...(state.renders||{}),[label]:report.render_pngs}});
+    await updateProjectMeta(projectId,{status:'active',stage:'done',version:label,source_name:file,source_sha256:sha,
+      page_count:slideCount,active_job:null,latest_report:'report-'+label+'.json',last_render_engine:render.engine,last_render_engine_version:render.engine_version,
+      checks:{structural:'pass',render:'pass',visual_review:'pending',editability:report.editable_pages?'pass':'pending',user_acceptance:'pending'},next_action:'画布审阅与修订'});
+    markCommitted(); invalidateIndex();
+    return {version:label,file,sha256:sha,slide_count:slideCount,editable_pages:report.editable_pages,report};
+  });
 }

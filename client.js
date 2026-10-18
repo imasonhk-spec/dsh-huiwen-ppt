@@ -11,9 +11,9 @@
  *   品牌绿走 --hp-* 自定义属性；正文阅读字号跟随 --dsh-content-font-size。
  * - 无 alert()、无定时器（生成/渲染进度用 CSS 动画 + onAnimationEnd 推进）；
  *   外链一律 target="_blank" rel="noopener noreferrer"。
- * - 本版本为纯前端 UI 原型：数据来自 /api/huiwen-ppt/assets/mock-data.json
- *   （由 huiwen-ppt skill 的真实模板目录、版式与对象边界提取）；
- *   对话为 mock 剧本（预留真模型接口），生成/渲染/导出/应用修订均为模拟反馈，不读写任何真实 PPT 文件。
+ * - 0.3.5 正式业务系统：全部数据来自真实后端 API（/api/huiwen-ppt/api/*）；
+ *   对话/大纲/生成/渲染/导出/修订均走服务端真实链路（大模型 + studio.py），
+ *   后端不可达时如实报错，无演示模式与 mock 数据兜底（assets/mock-data.json 仅测试脚本使用）。
  * - 三视图（一级导航 归档项目 / 模板库 / 对话制作）：项目首页（已完成/已归档 + 搜索/时间段筛选）
  *   + 模板库（v0.3.0 起回到一级导航，位于「归档项目」与「对话制作」之间）+ 对话制作页（左对话右演化工作区）。
  * - 视图全部常挂载，用 style.display 切换（不条件卸载，对话与画布状态不丢失）。
@@ -29,7 +29,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'cap:huiwen-ppt';
     const OPEN_EVENT = 'cappacks:open-huiwen-ppt';
     const SIDEBAR_EVENT = 'hp:huiwen-ppt-sidebar';
-    const VERSION = 'v0.3.5';
+    const VERSION = 'v0.4.9';
     const API = '/api/huiwen-ppt';
     const img = (name) => API + '/assets/previews/' + name;
 
@@ -51,12 +51,6 @@ window.__ModuleLoader__.load({
     const CHECK_LABELS = { structural: '结构', render: '渲染', visual_review: '视觉检查', editability: '编辑抽查', user_acceptance: '用户验收' };
     const FAMILY_NAME = { 'green-clean-business': '绿色简洁商务', 'green-office-illustrated': '绿色办公插画' };
     const APPROVAL_LABEL = { approved: '已批准', pending: '待确认', reference: '仅供参考' };
-    const SLIDE_PAGES = [
-      { n: 1, label: '封面', preview: 'clean-slide-01.png', layout: 'clean-cover', status: 'rendered' },
-      { n: 2, label: '需求与服务映射', preview: 'clean-slide-02.png', layout: 'clean-needs', status: 'rendered' },
-      { n: 4, label: '四步流程与交接', preview: 'clean-slide-04.png', layout: 'clean-flow', status: 'pending_review' },
-      { n: 9, label: '案例机制与证据', preview: 'clean-slide-09.png', layout: 'clean-case', status: 'rendered' },
-    ];
 
     /* ════════ locale 字典（面板标签等少量键；界面正文为中文原型文案） ════════ */
     const ZH = { panel: '汇文 PPT' };
@@ -382,7 +376,7 @@ window.__ModuleLoader__.load({
     }
 
     /* ════════ 视图一：项目首页（进行中 / 已归档 分区） ════════ */
-    function ProjectHome({ data, projects, onNav, onToast, backend, onReloadProjects, onNewConversation }) {
+    function ProjectHome({ data, projects, onNav, onToast, backend, onReloadProjects, onNewConversation, onOpenProject, onDeleteProject }) {
       const importRef = useRef(null);
       const [importing, setImporting] = useState(false);
       const [verDrawer, setVerDrawer] = useState(null); // { project, loading, data, error }
@@ -504,6 +498,7 @@ window.__ModuleLoader__.load({
           if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
           onToast('已重新打开「' + p.title + '」，恢复为可编辑工作版本');
           if (onReloadProjects) onReloadProjects();
+          if (onOpenProject) onOpenProject({ ...p, real: true, archived: false });
         } catch (e) {
           onToast('重新打开失败：' + (e && e.message ? e.message : e));
           if (onReloadProjects) onReloadProjects(); // 失败时同步列表，消除幽灵卡片
@@ -527,7 +522,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'hp-row', style: { gap: 8, marginBottom: 6 } },
               h('span', { className: 'hp-pjt', style: { fontSize: 15, fontWeight: 700 } }, p.title),
               isArchived
-                ? h(Badge, { tone: 'ok' }, '📦 已归档 · 已导出')
+                ? h(Badge, { tone: 'ok' }, '📦 已归档')
                 : h(Badge, { tone: p.status === 'rendered_pending_review' ? 'pend' : p.status === 'imported' ? 'lock' : 'pend' }, p.status_label),
               h('span', { className: 'hp-tid' }, p.version)),
             h('div', { className: 'hp-row', style: { gap: 14, fontSize: 12, color: 'var(--dsw-alias-label-tertiary,#94a3b8)', marginBottom: 10 } },
@@ -543,7 +538,9 @@ window.__ModuleLoader__.load({
             isArchived
               ? h(Btn, { kind: 'pri', sm: true, onClick: () => reopen(p) }, '↩ 重新打开')
               : h(Btn, { kind: 'pri', sm: true, onClick: () => onNav('studio') }, p.next_action || '继续对话'),
-            h(Btn, { sm: true, onClick: () => openVersions(p) }, '版本列表'))));
+            h(Btn, { sm: true, onClick: () => openVersions(p) }, '版本列表'),
+            h('a', { href: API + '/api/projects/' + encodeURIComponent(p.id) + '/download' }, '下载 PPTX'),
+            h(Btn, { sm: true, onClick: () => onDeleteProject && onDeleteProject({ ...p, real: true }) }, '删除项目及导出'))));
 
       return h('div', { className: 'hp-scroll' },
         h('div', { className: 'hp-row', style: { justifyContent: 'space-between', marginBottom: 18 } },
@@ -671,7 +668,7 @@ window.__ModuleLoader__.load({
     }
 
     /* ════════ 视图二：模板库 ════════ */
-    function TemplateLibrary({ data, onNav, onToast }) {
+    function TemplateLibrary({ data, onNav, onToast, targetProjectId, allProjects, onReloadIndex }) {
       const [kw, setKw] = useState('');
       const [family, setFamily] = useState('all');
       const [relation, setRelation] = useState('all');
@@ -681,6 +678,9 @@ window.__ModuleLoader__.load({
       const [compare, setCompare] = useState([]);
       const [showCompare, setShowCompare] = useState(false);
       const [added, setAdded] = useState({});
+      const [targetPid, setTargetPid] = useState(targetProjectId || '');
+      useEffect(() => { if (targetProjectId) setTargetPid(targetProjectId); }, [targetProjectId]);
+      useEffect(()=>{let alive=true;setAdded({});if(targetPid)fetch(API+'/api/projects/'+encodeURIComponent(targetPid)+'/layout-preferences',{credentials:'same-origin'}).then(r=>r.json()).then(j=>{if(!alive||!j.ok)return;const list=j.preferences||[];const counts={count:list.length};for(const p of list)counts[p.layout_id]=(counts[p.layout_id]||0)+1;setAdded(counts);}).catch(e=>{if(alive)onToast(e.message);});return()=>{alive=false;};},[targetPid]);
       /* WF-10 模板包管理 */
       const [showFolders, setShowFolders] = useState(false);
       const [folders, setFolders] = useState([]);
@@ -719,7 +719,7 @@ window.__ModuleLoader__.load({
           }).then((x) => x.json());
           if (!r.ok) throw new Error(r.message || '审批失败');
           onToast('「' + f.name + '」已批准 ✅ 可在对话制作中选择');
-          await loadFolders();
+          await loadFolders(); if(onReloadIndex) onReloadIndex();
         } catch (e) { onToast('审批失败：' + (e && e.message ? e.message : e)); }
         setFolderBusy(false);
       };
@@ -762,12 +762,14 @@ window.__ModuleLoader__.load({
         return arr;
       }, [data, kw, family, relation, approval, packFirst]);
 
-      const addToProject = (lay) => {
-        setAdded((prev) => {
-          const n = (prev.count || 0) + 1;
-          onToast('已选用「' + lay.name + '」版式偏好（第 ' + n + ' 次参考），逐页版式确认时按需应用');
-          return { ...prev, count: n, [lay.id]: (prev[lay.id] || 0) + 1 };
-        });
+      const addToProject = async (lay) => {
+        if (!targetPid) { onToast('请先选择目标项目'); return; }
+        try {
+          const response = await fetch(API + '/api/projects/' + encodeURIComponent(targetPid) + '/layout-preferences', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ layout_id: lay.id }), credentials: 'same-origin' });
+          const j = await response.json(); if (!response.ok || !j.ok) throw new Error(j.message || '加入失败');
+          setAdded((prev) => ({ ...prev, count: j.preferences.length, [lay.id]: j.preferences.filter((p) => p.layout_id === lay.id).length }));
+          onToast('版式已保存到目标项目的第 ' + j.preferences[j.preferences.length - 1].n + ' 页');
+        } catch (e) { onToast('加入项目失败：' + e.message); }
       };
       const toggleCompare = (lay) => {
         setCompare((prev) => {
@@ -807,6 +809,7 @@ window.__ModuleLoader__.load({
             h(Btn, { kind: 'pri', onClick: () => onNav('studio') }, '✨ 新对话'))),
 
         h('div', { className: 'hp-card', style: { padding: '12px 14px', marginBottom: 16 } },
+          h('label', { className: 'hp-row', style: { gap: 8, marginBottom: 8 } }, '加入目标项目', h('select', { className: 'hp-select', value: targetPid, onChange: (e) => setTargetPid(e.target.value) }, h('option', { value: '' }, '请选择项目'), (allProjects || []).map((p) => h('option', { key: p.id, value: p.id }, p.title)))),
           h('div', { className: 'hp-row', style: { gap: 10 } },
             h('input', { className: 'hp-input', style: { width: 240 }, placeholder: '搜索版式 ID / 名称 / 标签…', value: kw, onChange: (e) => setKw(e.target.value) }),
             h('select', { className: 'hp-select', style: { width: 150 }, value: family, onChange: (e) => setFamily(e.target.value) },
@@ -821,7 +824,7 @@ window.__ModuleLoader__.load({
               h('option', { value: 'pending' }, '待确认')),
             h('label', { className: 'hp-row', style: { gap: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#475569)', cursor: 'pointer' } },
               h('input', { type: 'checkbox', checked: packFirst, onChange: (e) => setPackFirst(e.target.checked) }),
-              '参考图构图包优先'),
+              '已批准的可生成版式'),
             h('span', { className: 'hp-tid' }, list.length + ' 个版式'))),
 
         list.length ? h('div', { className: 'hp-tgrid' }, list.map(card)) : h(EmptyHint, { icon: '🔍', text: '没有匹配的版式，请调整筛选条件' }),
@@ -914,80 +917,17 @@ window.__ModuleLoader__.load({
     /* ── mock 剧本常量（演示场景：项目汇报；预留真模型接口位置） ── */
     const STUDIO_STEPS = ['需求', '材料', '大纲', '风格', '版式', '生成', '导出'];
     const STAGE_IDX = { idle: 0, material: 1, outline: 2, style: 3, pages: 4, generating: 5, done: 6, archived: 6 };
-    const GEN_STEPS = ['解析材料与大纲', '匹配版式并填充内容', '结构检查与渲染', '视觉检查与编辑抽查'];
+    const GEN_STEPS = ['生成逐页正文与构建操作', '构建 PPTX', '结构巡检', '渲染预览与报告'];
     const FAMILY_PREVIEW = { 'green-clean-business': 'clean-slide-03.png', 'green-office-illustrated': 'illu-slide-01.png' };
 
     /* 场景大纲库：按关键词命中，未命中走通用 */
-    const SCENARIOS = [
-      {
-        key: 'report', match: /汇报|进度|项目/, topic: '智慧园区管理平台项目进度汇报',
-        outline: [
-          { title: '封面：项目名与汇报人', rel: '封面' },
-          { title: '项目背景与目标', rel: '需求' },
-          { title: '整体进度总览', rel: '总览' },
-          { title: '里程碑与关键交付', rel: '流程' },
-          { title: '数据看板：进度与质量', rel: '数据' },
-          { title: '风险与问题', rel: '对比' },
-          { title: '下一阶段计划', rel: '计划' },
-          { title: '致谢与 Q&A', rel: '收尾' },
-        ],
-      },
-      {
-        key: 'summary', match: /总结|年度|年终/, topic: '年度工作总结',
-        outline: [
-          { title: '封面：年度主题', rel: '封面' },
-          { title: '年度目标回顾', rel: '需求' },
-          { title: '关键成果总览', rel: '总览' },
-          { title: '重点工作推进过程', rel: '流程' },
-          { title: '数据亮点', rel: '数据' },
-          { title: '问题与不足', rel: '对比' },
-          { title: '明年规划', rel: '计划' },
-          { title: '结尾', rel: '收尾' },
-        ],
-      },
-      {
-        key: 'product', match: /产品|发布|介绍/, topic: '新产品介绍',
-        outline: [
-          { title: '封面：产品名与定位语', rel: '封面' },
-          { title: '痛点与机会', rel: '需求' },
-          { title: '产品定位与全貌', rel: '总览' },
-          { title: '核心功能流程', rel: '流程' },
-          { title: '关键指标与效果', rel: '数据' },
-          { title: '竞品对比', rel: '对比' },
-          { title: '发布路线图', rel: '计划' },
-          { title: '结尾', rel: '收尾' },
-        ],
-      },
-    ];
-    const GENERIC_OUTLINE = [
-      { title: '封面：主题与汇报人', rel: '封面' },
-      { title: '背景与目标', rel: '需求' },
-      { title: '整体概览', rel: '总览' },
-      { title: '核心内容展开', rel: '流程' },
-      { title: '数据与成效', rel: '数据' },
-      { title: '对比与分析', rel: '对比' },
-      { title: '后续计划', rel: '计划' },
-      { title: '结尾', rel: '收尾' },
-    ];
-    /* 页数扩充池（8 → 12/16 页时按顺序补页） */
-    const EXTRA_PAGES = [
-      { title: '整体架构', rel: '架构' }, { title: '典型案例', rel: '案例' },
-      { title: '明细表格', rel: '表格' }, { title: '治理与保障', rel: '治理' },
-      { title: '协作生态', rel: '生态' }, { title: '素材页', rel: '素材' },
-      { title: '数据对比', rel: '指标' }, { title: '方案比选', rel: '方案' },
-    ];
     const MAT_ICONS = { docx: '📝', doc: '📝', pdf: '📕', pptx: '📊', ppt: '📊', xlsx: '📈', xls: '📈', txt: '📄', md: '📄' };
 
     function ConversationStudio({ data, onNav, onToast, onProjectArchived, onReloadProjects, historyMode, activeConv, activeConvId, onConvSync, onRequestNewConversation, backend }) {
-      /* 真实后端连通即真实模式：对话/材料/大纲/生成/导出/修订全走服务端；后端不可达降级演示剧本兜底。
+      /* 真实后端连通即真实模式：对话/材料/大纲/生成/导出/修订全走服务端；后端不可达如实报错。
          historyMode=true 表示「历史对话」列表来自真实后端项目（与 isReal 同源，保留兼容）。 */
       const isReal = !!(backend && backend.mode === 'real');
       const L = (id) => data.layouts.find((x) => x.id === id) || null;
-      const poolOf = (rel, family) => {
-        const pool = data.layouts.filter((x) => x.relation === rel);
-        if (!pool.length) return data.layouts.slice(0, 1);
-        return pool.slice().sort((a, b) => ((b.family === family) - (a.family === family)));
-      };
       /* 风格显示名：内置分支查表，自定义导入风格用模板名 */
       const famDisplay = (c, famId) => {
         const f = famId || c.family;
@@ -1000,9 +940,9 @@ window.__ModuleLoader__.load({
       const [stage, setStage] = useState('idle');
       const [typing, setTyping] = useState(false);
       const [input, setInput] = useState('');
-      const [ctx, setCtx] = useState({ topic: '', scenario: null, materials: [], outline: [], family: 'green-clean-business', count: 8, pageLayouts: [], version: 'v0001', sha: '9f2c7ad4…b810' });
+      const [ctx, setCtx] = useState({ topic: '', scenario: null, materials: [], outline: [], family: 'green-clean-business', count: null, pageLayouts: [], version: null, sha: null });
       const [genStep, setGenStep] = useState(-1);
-      const [sel, setSel] = useState({ family: 'green-clean-business', count: 8 });
+      const [sel, setSel] = useState({ family: 'green-clean-business', count: null });
       /* null = 默认与右侧工作台 1:1（CSS width:50%）；拖拽后为固定 px */
       const [chatW, setChatW] = useState(null);
       const [dragging, setDragging] = useState(false);
@@ -1018,7 +958,6 @@ window.__ModuleLoader__.load({
       const idSeq = useRef(1);
       const endRef = useRef(null);
       const fileRef = useRef(null);
-      const canvasApiRef = useRef(null);
 
       const nid = () => 'm' + (idSeq.current++);
       useEffect(() => { if (endRef.current) endRef.current.scrollIntoView({ block: 'end' }); }, [msgs, typing]);
@@ -1028,6 +967,21 @@ window.__ModuleLoader__.load({
       const [models, setModels] = useState([]);
       const [modelId, setModelId] = useState('');
       const [busy, setBusy] = useState(false); // 等待后端回合（typing 气泡保持）
+      const requestEpoch = useRef(0);
+      const activeRequestId = useRef(null);
+      const requestControllers = useRef(new Set());
+      const projectFetch = async (url, options = {}) => {
+        const epoch = requestEpoch.current;
+        const target = String(url).match(/\/projects\/([^/?]+)/)?.[1];
+        const stale = () => epoch !== requestEpoch.current || (target && activeRequestId.current && decodeURIComponent(target) !== activeRequestId.current);
+        const staleError = () => Object.assign(new Error('项目已切换，已丢弃旧请求'), { code: 'STALE_PROJECT' });
+        if (stale()) throw staleError();
+        const controller = new AbortController(); requestControllers.current.add(controller);
+        try {
+          const response = await fetch(url, { ...options, signal: controller.signal });
+          return { ok: response.ok, status: response.status, json: async () => { try { const result = await response.json(); if (stale()) throw staleError(); return result; } finally { requestControllers.current.delete(controller); } } };
+        } catch (e) { requestControllers.current.delete(controller); if (stale()) throw staleError(); throw e; }
+      };
       useEffect(() => {
         let alive = true;
         fetch(API + '/api/models', { credentials: 'same-origin' })
@@ -1040,18 +994,18 @@ window.__ModuleLoader__.load({
           .catch(() => {});
         return () => { alive = false; };
       }, []);
-      const DEFAULT_CTX = { topic: '', scenario: null, materials: [], outline: [], family: 'green-clean-business', count: 8, pageLayouts: [], version: 'v0001', sha: '9f2c7ad4…b810' };
+      const DEFAULT_CTX = { topic: '', scenario: null, materials: [], outline: [], family: 'green-clean-business', count: null, pageLayouts: [], version: null, sha: null, shaFull: null, renders: [] };
       const WELCOME_TEXT = '你好，我是汇文 PPT 助手 🎬。正式生成前我会一次只问一个问题，直到有 95% 把握真正理解你的需求；顺序完全由你定：随时传材料（📎）、出大纲、换风格页数、直接生成，做到一半想推翻重来也随时可以 🔄。';
       const welcomeMsg = () => ({ id: 'm0', role: 'ai', kind: 'text', text: WELCOME_TEXT });
       const resetLocal = () => {
         setMsgs([welcomeMsg()]);
-        setStage('idle'); setCtx(DEFAULT_CTX); setGenStep(-1); setSel({ family: 'green-clean-business', count: 8 });
+        setStage('idle'); setCtx(DEFAULT_CTX); setGenStep(-1); setSel({ family: 'green-clean-business', count: null });
       };
       /* 新对话：真实模式先建后端项目壳（方案 WF-02），失败保持本地 */
       const startNewConversation = async () => {
         if (!isReal) { resetLocal(); return; }
         try {
-          const res = await fetch(API + '/api/projects/new', {
+          const res = await projectFetch(API + '/api/projects/new', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({}), credentials: 'same-origin',
           });
@@ -1060,7 +1014,7 @@ window.__ModuleLoader__.load({
           setProjectId(j.project.id);
           resetLocal();
           if (onReloadProjects) onReloadProjects();
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           onToast('新建项目失败：' + (e && e.message ? e.message : e));
         }
       };
@@ -1069,13 +1023,13 @@ window.__ModuleLoader__.load({
       const stageFromBackend = (s) => {
         if (s === 'archived') return 'archived';
         if (s === 'imported' || s === 'done' || s === 'pending_review' || s === 'render_failed') return 'done';
-        if (s === 'generating') return 'pages';
+        if (s === 'generating') return 'generating';
         return STAGE_IDX[s] != null ? s : 'idle';
       };
       /* 本地会话快照还原（会话内新建的对话，状态整段保留） */
       const restoreSnapshot = (rec) => {
         let snap = null;
-        try { snap = JSON.parse(JSON.stringify({ msgs: (rec && rec.msgs) || [], ctx: (rec && rec.ctx) || null, stage: (rec && rec.stage) || 'idle' })); } catch (e) { snap = null; }
+        try { snap = JSON.parse(JSON.stringify({ msgs: (rec && rec.msgs) || [], ctx: (rec && rec.ctx) || null, stage: (rec && rec.stage) || 'idle' })); } catch (e) { if (e?.code === 'STALE_PROJECT') return; snap = null; }
         if (!snap) return;
         const list = (snap.msgs || []).filter((m) => m && m.id && m.role);
         setMsgs(list.length ? list : [welcomeMsg()]);
@@ -1088,9 +1042,10 @@ window.__ModuleLoader__.load({
       };
       /* 真实后端项目：读取 conversation.jsonl 还原对话内容 */
       const loadRealConversation = async (id, title) => {
+        const epoch = requestEpoch.current;
         setBusy(true);
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(id) + '/conversation', { credentials: 'same-origin' });
+          const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(id) + '/conversation', { credentials: 'same-origin' });
           const j = await res.json().catch(() => ({}));
           if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
           const list = (j.messages || [])
@@ -1104,21 +1059,34 @@ window.__ModuleLoader__.load({
             .filter((m) => (m.kind === 'text' ? !!m.text.trim() : true));
           setMsgs(list.length ? list : [welcomeMsg()]);
           idSeq.current = list.length + 2;
-          setCtx({ ...DEFAULT_CTX, topic: j.title || title || '' });
-          setSel({ family: 'green-clean-business', count: 8 });
-          setStage(stageFromBackend(j.stage));
+          const snapshotResponse = await projectFetch(API + '/api/projects/' + encodeURIComponent(id) + '/snapshot', { credentials: 'same-origin' });
+          const snap = await snapshotResponse.json();
+          if (!snapshotResponse.ok || !snap.ok) throw new Error(snap.message || '项目快照读取失败');
+          const count = snap.selection?.count || snap.brief?.page_count || snap.outline?.pages?.length || null;
+          const family = snap.selection?.family || 'green-clean-business';
+          setCtx({ ...DEFAULT_CTX, topic: snap.meta.title || j.title || title || '', materials: (snap.materials || []).map((m) => ({ ...m, ext: m.type, icon: MAT_ICONS[m.type] || '📎', pages: m.text_chars ? m.text_chars + ' 字' : m.size + ' 字节', summary: m.role === 'visual-reference' ? '图片版式参考，不作为正文依据' : m.extraction_error || '正文已完整提取' })), outline: (snap.outline?.pages || []).map((p) => ({ n: p.n, title: p.title, rel: p.relation })), family, count, customStyle: snap.custom_style, pageLayouts: (snap.plan?.pages || []).map((p) => ({ n: p.n, title: p.title, rel: p.relation, alt: p.alt, layoutId: p.layout_id })), version: snap.meta.version, sha: snap.meta.source_sha256, shaFull: snap.meta.source_sha256, renders: snap.renders || [] });
+          setSel({ family, count }); setModelId(snap.meta.dialogue_model || '');
+          setStage(snap.meta.status === 'archived' ? 'archived' : stageFromBackend(snap.meta.stage));
+          if(snap.meta.stage==='style' && !snap.selection && !list.some(m=>m.kind==='style')) setMsgs((prev)=>[...prev,{id:nid(),role:'ai',kind:'style',payload:{}}]);
           setProjectId(id);
           setGenStep(-1); setInput(''); setTyping(false); setAtOpen(false); pendingRef.current = [];
+          const activeJob = (snap.jobs || []).find((job) => ['queued', 'running'].includes(job.status));
+          if (activeJob) { setStage('generating'); pollJob(activeJob.id); }
           onToast('已打开历史对话「' + (j.title || title || id) + '」· ' + list.length + ' 条消息');
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           onToast('打开历史对话失败：' + (e && e.message ? e.message : e));
-        } finally { setBusy(false); }
+        } finally { if (epoch === requestEpoch.current) setBusy(false); }
       };
       /* 打开动作只在 nonce 变化时触发（同一对话重复点击不重载） */
       const lastConvNonce = useRef(null);
       useEffect(() => {
-        if (!activeConv || activeConv.nonce === lastConvNonce.current) return;
+        if (!activeConv) { requestEpoch.current += 1; activeRequestId.current=null; for(const c of requestControllers.current)c.abort(); requestControllers.current.clear(); if(jobTimerRef.current)clearTimeout(jobTimerRef.current); resetLocal(); setProjectId(null); setBusy(false); return; }
+        if (activeConv.nonce === lastConvNonce.current) return;
         lastConvNonce.current = activeConv.nonce;
+        requestEpoch.current += 1; activeRequestId.current = activeConv.id || null;
+        for (const controller of requestControllers.current) controller.abort(); requestControllers.current.clear();
+        if (jobTimerRef.current) clearTimeout(jobTimerRef.current);
+        setPending([]); setCanvasShapes(null); setActiveJobId(null); setJobProgress(null); pendingRef.current = [];
         if (activeConv.fresh) { resetLocal(); setProjectId(activeConv.real && activeConv.id ? activeConv.id : null); return; }
         if (activeConv.real) { loadRealConversation(activeConv.id, activeConv.title); return; }
         if (activeConv.record) restoreSnapshot(activeConv.record);
@@ -1130,7 +1098,7 @@ window.__ModuleLoader__.load({
       }, [activeConvId, msgs.length, stage, ctx.topic]);
 
       /* ── 消息机制（无定时器：typing 动画结束即投递 AI 消息） ── */
-      const pushAi = (items) => { pendingRef.current = items; setTyping(true); };
+      const pushAi = (items) => { pendingRef.current.push(...items); setTyping(true); };
       const flushAi = () => {
         const items = pendingRef.current || [];
         pendingRef.current = [];
@@ -1139,60 +1107,21 @@ window.__ModuleLoader__.load({
       };
       const say = (text, extra) => ({ id: nid(), role: 'ai', kind: 'text', text, ...(extra || {}) });
 
-      /* ── 剧本推进 ── */
-      const detectScenario = (text) => SCENARIOS.find((s) => s.match.test(text)) || null;
-      const outlineFor = (sc) => (sc ? sc.outline : GENERIC_OUTLINE).map((o, i) => ({ n: i + 1, title: o.title, rel: o.rel }));
+      const proceedStyle = () => onToast('请先打开服务端项目');
+      const proceedPages = async (family,count) => {
+        if (!isReal || !projectId) { onToast('请先打开服务端项目'); return; }
+        const epoch = requestEpoch.current; setBusy(true);
+        try { await confirmStyleReal(family,count); }
+        catch (e) { if (e?.code !== 'STALE_PROJECT') onToast('风格确认失败：' + e.message); }
+        finally { if (epoch === requestEpoch.current) setBusy(false); }
+      };
+      const startGenerate = () => { if (!isReal || !projectId) { onToast('请先打开服务端项目'); return; } startGenerateReal(); };
 
-      const startOutline = (ctxNow, ackText) => {
-        const outline = outlineFor(ctxNow.scenario);
-        const ctxNext = { ...ctxNow, outline };
-        setCtx(ctxNext); setStage('outline');
-        const items = [];
-        if (ackText) items.push(say(ackText));
-        items.push(say('基于你的需求，我拟了一份 ' + outline.length + ' 页的大纲，右侧可以预览整体结构。确认或告诉我怎么调整：'));
-        items.push({ id: nid(), role: 'ai', kind: 'outline', payload: { outline } });
-        pushAi(items);
-      };
-
-      const buildPages = (ctxNow, family, count) => {
-        let pages = ctxNow.outline.map((o) => ({ n: o.n, title: o.title, rel: o.rel, alt: 0 }));
-        const extra = EXTRA_PAGES.slice();
-        while (pages.length < count) {
-          const e = extra.shift();
-          if (!e) break;
-          pages.splice(pages.length - 1, 0, { n: 0, title: e.title, rel: e.rel, alt: 0 });
-        }
-        pages = pages.slice(0, count).map((p, i) => ({ ...p, n: i + 1 }));
-        return pages.map((p) => ({ ...p, layoutId: poolOf(p.rel, family)[0].id }));
-      };
-
-      const proceedStyle = () => {
-        setStage('style');
-        pushAi([
-          say('大纲确认 ✅。接下来选风格与页数：项目汇报类场合我推荐「绿色简洁商务」（更正式），也为你备了「绿色办公插画」作对比。'),
-          { id: nid(), role: 'ai', kind: 'style', payload: {} },
-        ]);
-      };
-      const proceedPages = (family, count) => {
-        if (isReal && projectId) { confirmStyleReal(family, count); return; }
-        const pageLayouts = buildPages(ctx, family, count);
-        setCtx((c) => ({ ...c, family, count, pageLayouts }));
-        setStage('pages');
-        pushAi([
-          say('已按「' + famDisplay(ctx, family) + ' · ' + count + ' 页」为每一页匹配了版式（模板库真实版式，参考图构图包优先）。逐页看看，不满意的可以「换一换」：'),
-          { id: nid(), role: 'ai', kind: 'pages', payload: { pageLayouts } },
-        ]);
-      };
-      const startGenerate = () => {
-        if (isReal && projectId) { startGenerateReal(); return; }
-        setStage('generating'); setGenStep(0);
-        pushAi([say('收到，开始生成 🚀 共 4 个阶段，右侧有实时进度。')]);
-      };
       /* ── WF-07 对话通道：真实修订（解析指令 → studio patch → 新版本渲染） ── */
       const reviseReal = async (text) => {
         setBusy(true);
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/revise', {
+          const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/revise', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ instruction: text, model_id: modelId || null }), credentials: 'same-origin',
           });
@@ -1214,7 +1143,7 @@ window.__ModuleLoader__.load({
             { id: nid(), role: 'ai', kind: 'result', payload: { real: true, version: j.version, pages: j.slide_count } },
           ]);
           if (onReloadProjects) onReloadProjects();
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           setBusy(false);
           pushAi([say('修订失败：' + (e && e.message ? e.message : e) + (String(e && e.message).indexOf('乐观锁') >= 0 ? '（画布数据已过期，请刷新页面后重试）' : ''))]);
         }
@@ -1224,58 +1153,40 @@ window.__ModuleLoader__.load({
       const [canvasPage, setCanvasPage] = useState(1);
       const [canvasShapes, setCanvasShapes] = useState(null); // {version, page, slide_count, shapes}
       const [pending, setPending] = useState([]); // {slide, shape_id, name, text}
-      const loadShapes = async (page) => {
-        setCanvasPage(page);
-        setCanvasShapes(null);
-        try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/shapes?page=' + page, { credentials: 'same-origin' });
-          const j = await res.json();
-          if (res.ok && j.ok) setCanvasShapes(j);
-          else setCanvasShapes({ error: j.message || ('HTTP ' + res.status) });
-        } catch (e) { setCanvasShapes({ error: String(e && e.message ? e.message : e) }); }
-      };
-      const queueEdit = (shape, text) => {
-        setPending((q) => [...q.filter((x) => !(x.slide === canvasPage && x.shape_id === shape.shape_id)), { slide: canvasPage, shape_id: shape.shape_id, name: shape.name, text }]);
-        onToast('已加入修订队列（' + canvasPage + ' 页 · ' + shape.name + '）');
-      };
-      const applyPending = async () => {
-        if (!pending.length) { onToast('修订队列为空'); return; }
-        setBusy(true);
-        try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/patch', {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ operations: pending.map((p) => ({ slide: p.slide, shape_id: p.shape_id, op: 'set-text', text: p.text })), source: 'canvas', note: '画布队列应用 ' + pending.length + ' 项' }),
-            credentials: 'same-origin',
-          });
-          const j = await res.json();
-          if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
-          setBusy(false);
-          setPending([]);
-          setCtx((c) => ({
-            ...c,
-            version: j.version,
-            sha: (j.sha256 || '').slice(0, 8) + '…' + (j.sha256 || '').slice(-4),
-            shaFull: j.sha256 || '',
-            renders: (j.report && j.report.render_pngs) || [],
-          }));
-          onToast('已应用修订，新版本 ' + j.version);
-          if (onReloadProjects) onReloadProjects();
-        } catch (e) {
-          setBusy(false);
-          onToast('应用失败：' + (e && e.message ? e.message : e));
-        }
-      };
-
       /* ── WF-06：真实生成（构建/渲染/巡检任务链 + 进度轮询） ── */
       const jobTimerRef = useRef(null);
+      const [activeJobId, setActiveJobId] = useState(null);
+      const [jobProgress, setJobProgress] = useState(null);
+      const pollJob = (jobId) => {
+        if (jobTimerRef.current) clearTimeout(jobTimerRef.current);
+        setActiveJobId(jobId);
+        const epoch = requestEpoch.current;
+        const tick = async () => {
+          if (epoch !== requestEpoch.current) return;
+          try {
+            const res = await projectFetch(API + '/api/jobs/' + encodeURIComponent(jobId), { credentials: 'same-origin' });
+            const j = await res.json();
+            if (epoch !== requestEpoch.current) return;
+            if (!res.ok || !j.ok) throw new Error(j.message || '任务查询失败');
+            const job = j.job; setJobProgress(job);
+            if (typeof job.step === 'number') setGenStep(Math.min(GEN_STEPS.length - 1, job.step));
+            if (job.status === 'done') { setActiveJobId(null); finishGenerateReal(job.result); return; }
+            if (['failed','cancelled','interrupted'].includes(job.status)) { setActiveJobId(null); setBusy(false); setStage(ctx.version ? 'done' : 'pages'); setGenStep(-1); pushAi([say('生成未完成：' + (job.error?.message || job.status) + '。可重试，已有版本保留。')]); return; }
+            jobTimerRef.current = setTimeout(tick, 1500);
+          } catch (e) { if (e?.code === 'STALE_PROJECT') return; if (epoch !== requestEpoch.current) return; setBusy(false); pushAi([say('进度查询失败：' + e.message + '。可恢复查询原任务。')]); }
+        };
+        tick();
+      };
       useEffect(() => () => { if (jobTimerRef.current) clearTimeout(jobTimerRef.current); }, []);
       const finishGenerateReal = (res) => {
+        if (!res?.version || !res.sha256 || res.report?.structural !== 'pass' || res.report?.render !== 'pass' || res.report?.render_pngs?.length !== res.slide_count) { setBusy(false); pushAi([say('任务结果不完整，尚未确认生成成功，请检查真实报告')]); return; }
         setBusy(false);
         setStage('done'); setGenStep(GEN_STEPS.length);
         setCtx((c) => ({
           ...c,
           version: res.version,
           sha: (res.sha256 || '').slice(0, 8) + '…' + (res.sha256 || '').slice(-4),
+          shaFull: res.sha256,
           realEngine: true,
           renders: (res.report && res.report.render_pngs) || [],
           editablePages: res.editable_pages,
@@ -1290,54 +1201,28 @@ window.__ModuleLoader__.load({
       const startGenerateReal = async () => {
         setBusy(true);
         try {
-          const r0 = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/generate', {
+          const r0 = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/generate', {
             method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}), credentials: 'same-origin',
           });
           const j0 = await r0.json();
+          if (j0.code === 'TEMPLATE_SELECTION_REQUIRED') {
+            setBusy(false); setStage('style'); setSel((s)=>({...s,count:j0.details?.count || s.count}));
+            pushAi([say(j0.message),{id:nid(),role:'ai',kind:'style',payload:{}}]); return;
+          }
           if (!r0.ok || !j0.ok) throw new Error((j0 && j0.message) || ('HTTP ' + r0.status));
           setStage('generating'); setGenStep(0);
           pushAi([say('收到，开始生成 🚀 真实构建已启动（studio 引擎 + LibreOffice 渲染），右侧有实时进度。')]);
-          let ticks = 0;
-          const tick = async () => {
-            try {
-              const r = await fetch(API + '/api/jobs/' + encodeURIComponent(j0.job_id), { credentials: 'same-origin' });
-              const j = await r.json();
-              if (!r.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + r.status));
-              const job = j.job;
-              if (typeof job.step === 'number') setGenStep(Math.min(GEN_STEPS.length, job.step + 1));
-              if (job.status === 'done') { finishGenerateReal(job.result); return; }
-              if (job.status === 'failed' || job.status === 'cancelled') {
-                setBusy(false);
-                setStage('pages'); setGenStep(-1);
-                pushAi([say('生成未完成：' + ((job.error && job.error.message) || job.status) + '。可调整版式计划后重试「✨ 确认生成」。')]);
-                return;
-              }
-              if (++ticks > 150) { setBusy(false); pushAi([say('生成超时，请稍后在项目首页查看状态。')]); return; }
-              jobTimerRef.current = setTimeout(tick, 2500);
-            } catch (e) {
-              setBusy(false);
-              pushAi([say('进度查询失败：' + (e && e.message ? e.message : e))]);
-            }
-          };
-          jobTimerRef.current = setTimeout(tick, 2000);
-        } catch (e) {
+          setActiveJobId(j0.job_id); pollJob(j0.job_id);
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           setBusy(false);
           pushAi([say('生成任务启动失败：' + (e && e.message ? e.message : e))]);
         }
-      };
-      const finishGenerate = () => {
-        setStage('done'); setGenStep(GEN_STEPS.length);
-        pushAi([
-          say('生成完成 ✅ 画布已在右侧就绪：可以点击对象拖拽/改文字，也可以直接在这里对我说修改指令（比如「把第 2 页标题改成 XXX」）。'),
-          { id: nid(), role: 'ai', kind: 'result', payload: {} },
-          { id: nid(), role: 'ai', kind: 'export', payload: {} },
-        ]);
       };
       /* WF-08 真实导出：复制当前版本到工作区 exports/ 并闭环归档 */
       const exportReal = async () => {
         setBusy(true);
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/export', {
+          const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/export', {
             method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ note: '对话页导出' }), credentials: 'same-origin',
           });
           const j = await res.json();
@@ -1351,7 +1236,7 @@ window.__ModuleLoader__.load({
             { id: nid(), role: 'ai', kind: 'archived', payload: { real: true } },
           ]);
           if (onReloadProjects) onReloadProjects();
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           setBusy(false);
           pushAi([say('导出失败：' + (e && e.message ? e.message : e))]);
         }
@@ -1381,7 +1266,7 @@ window.__ModuleLoader__.load({
         const st = env.stage;
         const hasOutline = (env.ctx.outline || []).length > 0;
         /* 0.3.4：推翻重来——优先级最高，任何阶段触发（与后端 RESET_RE 同源） */
-        if (/推翻|推倒重来|换个?主题|重新开始|从零开始|全部重来|重来一[次遍]|重来吧|重新做一[份个张]|不做这个了|全部清空/.test(t)) {
+        if (/推翻|推倒重来|换个?主题|重新开始|从零开始|全部重来|重来一[次遍]|重来吧|重新做一[份个张]|不做这个了|全部清空/.test(t) && !/(不要|别|不想|无需|不能|先不|不需要|不打算|不是要)[^，。；!?！？]{0,30}(推翻|重来|重新开始|清空|换.*主题)/.test(t) && !/[「“"].*(推翻|重来|重新开始|清空).*?[」”"]|如果|是否|怎么|如何|意味着|是什么意思|能否/.test(t)) {
           return { kind: 'reset', raw: t };
         }
         const mPage = t.match(/第\s*(\d+)\s*页/);
@@ -1397,7 +1282,7 @@ window.__ModuleLoader__.load({
         if (/直接生成|开始生成|正式生成|完整生成|就这么做|做出来/.test(t)
           || (/P\s*P\s*T/i.test(t) && /(直接|现在|立刻|马上|一键|生成)/.test(t))) return { kind: 'generate' };
         if (/大纲/.test(t) && /(出|拟|重新|列|看|生成|调整|改|换)/.test(t)) return { kind: 'outline' };
-        const mCount = t.match(/(\d{1,2})\s*页/);
+        const mCount = t.match(/(\d+)\s*页/);
         /* 0.3.4.1：页数/风格词仅在大纲已确认后的阶段（style/pages/done）才构成风格确认意图；
            更早阶段说的「大概14页」是需求信息 → 走对话，服务端记入 brief 并继续一次一问（不再误触 WF-03） */
         if (['style', 'pages', 'done'].includes(st) && (mCount || (/(风格|模板|配色)/.test(t) && /(换|改|用|选|来)/.test(t)))) {
@@ -1407,10 +1292,17 @@ window.__ModuleLoader__.load({
       };
 
       /* 真实接口小工具：POST JSON（不带本地状态副作用） */
-      const postJson = (p, body) => fetch(API + p, {
+      const postJson = async (p, body) => {
+        const r = await projectFetch(API + p, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body || {}), credentials: 'same-origin',
-      }).then((r) => r.json()).catch(() => ({}));
+        });
+        let j;
+        try { j = await r.json(); }
+        catch (e) { if (e?.code === 'STALE_PROJECT') throw e; throw new Error('HTTP ' + r.status + '：服务返回非 JSON 响应'); }
+        if (!r.ok || !j?.ok) throw Object.assign(new Error(j?.message || ('HTTP ' + r.status)), { code: j?.code });
+        return j;
+      };
 
       /* 吸收一回合服务端返回：推进 stage / 同步大纲 / 消息进对话流；返回本轮出现的大纲（若有） */
       const absorbTurn = (j) => {
@@ -1427,17 +1319,21 @@ window.__ModuleLoader__.load({
       const ensureReadyForGenerate = async (rawText) => {
         let st = stage;
         let haveOutline = (ctx.outline || []).length > 0;
+        let count = sel.count;
         /* ① idle/material：先把需求同步给服务端（服务端提取 brief；信息足够时可能直接给出大纲） */
         if (st === 'idle' || st === 'material') {
           const j = await respondReal(rawText || ctx.topic || '请基于已有信息直接制作 PPT');
+          if (!j?.ok) throw new Error(j?.message || '需求同步失败，未继续制作');
           st = (j && j.stage) || st;
-          if ((j && j.messages || []).some((m) => m.kind === 'outline')) haveOutline = true;
+          const outline = (j.messages || []).find((m) => m.kind === 'outline')?.payload?.outline;
+          if (outline?.length) { haveOutline = true; count = outline.length; }
         }
         /* ② 尚无大纲 → 生成（跳过访谈直接出结构） */
         if (!haveOutline || st === 'idle' || st === 'material') {
           const j = await postJson('/api/projects/' + encodeURIComponent(projectId) + '/outline/generate', {});
           if (!j || !j.ok) throw new Error((j && j.message) || '大纲生成失败');
-          if (absorbTurn(j)) haveOutline = true;
+          const outline = absorbTurn(j);
+          if (outline?.length) { haveOutline = true; count = outline.length; }
           st = j.stage || 'outline';
         }
         /* ③ 大纲未确认 → 确认（门禁） */
@@ -1446,10 +1342,17 @@ window.__ModuleLoader__.load({
           if (!j || !j.ok) throw new Error((j && j.message) || '大纲确认失败');
           setStage('style'); st = 'style';
         }
-        /* ④ 风格与执行计划未定 → 用当前选择（默认 绿色简洁商务 8 页） */
+        /* ④ 模板必须由用户明确确认；直接生成也停在现有风格卡。 */
         if (st === 'style') {
-          await confirmStyleReal(sel.family || 'green-clean-business', sel.count || 8);
-          st = 'pages';
+          const response=await projectFetch(API+'/api/projects/'+encodeURIComponent(projectId)+'/snapshot',{credentials:'same-origin'});
+          const snapshot=await response.json();
+          if(!response.ok || !snapshot.ok) throw new Error(snapshot.message || '项目快照读取失败');
+          if (snapshot.selection) { await confirmStyleReal(snapshot.selection.family,count); st='pages'; }
+          else {
+            setStage('style'); setSel((s)=>({...s,count})); setBusy(false);
+            pushAi([say('生成前请确认使用哪个模板主题和页数。整份保持统一配色与字体，各页按内容安排不同版式。'),{id:nid(),role:'ai',kind:'style',payload:{}}]);
+            return false;
+          }
         }
         return st === 'pages' || st === 'done';
       };
@@ -1463,22 +1366,7 @@ window.__ModuleLoader__.load({
           pushAi([say('还没有生成版本，暂时改不了页——先说「直接生成」出一版，或先「出大纲」。')]);
           return;
         }
-        const api = canvasApiRef.current;
-        const n = intent.page;
-        const newText = intent.text;
-        if (api && newText) {
-          const titleish = (o) => o.name.indexOf('标题') >= 0 || o.name.indexOf('题') >= 0;
-          const anyText = (o) => !!o.editable_text;
-          let name = api.applyTextEdit(n, titleish, newText);
-          if (!name) name = api.applyTextEdit(n, anyText, newText);
-          if (name) {
-            pushAi([say('已把第 ' + n + ' 页「' + name + '」的文字更新为「' + newText + '」✍️，修改已写入画布待应用队列。在右侧画布点「应用修订」即可生成新版本（当前 ' + api.getVersion() + '，队列 ' + api.getPendingOps() + ' 项）。')]);
-          } else {
-            pushAi([say('第 ' + n + ' 页没有找到可直接编辑的文字对象（可能是组合/图片）。可以在右侧画布里点选该对象查看属性，或换一页试试。')]);
-          }
-        } else {
-          pushAi([say('画布还没就绪（需先生成完成）。')]);
-        }
+        onToast('请先打开服务端项目');
       };
 
       /* 导出：真实导出 PPTX（需已生成版本）；演示伪造闭环卡 */
@@ -1493,15 +1381,15 @@ window.__ModuleLoader__.load({
 
       /* 直接生成：真实自动补齐前置后启动 job；演示本地快进 */
       const doGenerate = async (rawText) => {
-        if (!isReal) { demoFastForward(rawText); return; }
+        if (!isReal) { onToast('后端未连接'); return; }
         if (!projectId) { pushAi([say('尚未创建项目，请点「🆕 新对话」开始。')]); return; }
         setBusy(true);
         try {
-          pushAi([say('收到 🚀 我会自动补齐前置（需求 → 大纲 → 确认 → 风格与版式计划），然后开始生成…')]);
+          pushAi([say('收到，我会先整理大纲；确认模板主题后，再展开逐页正文并生成 PPT。')]);
           const ready = await ensureReadyForGenerate(rawText);
-          if (!ready) throw new Error('前置补齐未完成');
+          if (!ready) return;
           await startGenerateReal(); // 内部自带 busy 管理与 job 轮询
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           setBusy(false);
           pushAi([say('生成未启动：' + (e && e.message ? e.message : e) + '。可重试，或先说「出大纲」看结构。')]);
         }
@@ -1509,23 +1397,15 @@ window.__ModuleLoader__.load({
 
       /* 出大纲：真实走 /outline/generate（信息不足先同步一回合）；演示本地大纲 */
       const doOutline = async (rawText) => {
-        if (!isReal) {
-          let ctxNow = ctx;
-          if (stage === 'idle') {
-            const sc = detectScenario(rawText || '');
-            const topic = sc ? sc.topic : String(rawText || '未命名汇报').replace(/大纲|出一份|重新|帮我|请/g, '').trim() || '未命名汇报';
-            ctxNow = { ...ctx, topic, scenario: sc };
-            setCtx(ctxNow);
-          }
-          startOutline(ctxNow);
-          return;
-        }
+        if (!isReal) { onToast('后端未连接'); return; }
         if (!projectId) { pushAi([say('尚未创建项目，请点「🆕 新对话」开始。')]); return; }
+        const epoch = requestEpoch.current;
         setBusy(true);
         try {
           let st = stage;
           if (st === 'idle' || st === 'material') {
             const j = await respondReal(rawText || ctx.topic || '请基于已有信息拟大纲');
+            if (!j?.ok) throw new Error(j?.message || '需求同步失败，未继续制作');
             st = (j && j.stage) || st;
           }
           if (st !== 'outline') {
@@ -1535,10 +1415,10 @@ window.__ModuleLoader__.load({
           } else {
             pushAi([say('当前大纲已在对话里，可直接「确认」或继续说怎么调整。')]);
           }
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           pushAi([say('大纲生成失败：' + (e && e.message ? e.message : e))]);
         } finally {
-          setBusy(false);
+          if (epoch === requestEpoch.current) setBusy(false);
         }
       };
 
@@ -1551,7 +1431,7 @@ window.__ModuleLoader__.load({
 
       /* 风格/页数：解析家族关键词后走既有链路（真实 confirmStyleReal / 演示 buildPages） */
       const doStyle = (intent) => {
-        const count = intent.count || sel.count || ctx.count || 8;
+        const count = intent.count || sel.count || ctx.count || null;
         const t = intent.text || '';
         let family = sel.family || ctx.family || 'green-clean-business';
         if (ctx.customStyle && /自定义|我的模板|上传的模板/.test(t)) family = ctx.customStyle.id;
@@ -1562,27 +1442,20 @@ window.__ModuleLoader__.load({
       };
 
       /* 普通对话：真实走服务端编排；演示走剧本状态机（兜底保留） */
-      const doChat = (text) => {
-        if (isReal && projectId) { respondReal(text); return; }
-        demoScriptedRespond(text);
-      };
-
-      /* 演示剧本（后端不可达时的兜底；保留原有阶段推进语义） */
-      const demoScriptedRespond = (text) => {
-        /* 0.3.4.3：正式业务系统——后端未连接时如实提示，不提供演示流程 */
-        pushAi([say('⚠️ 后端服务未连接：正式业务系统不提供演示流程。请通过 DSH 正常打开本应用（后端随宿主自动启动）后重试。')]);
-      };
-
-      /* 演示：直接生成 = 本地快进（已有大纲沿用；无则按场景生成，再走生成动画） */
-      const demoFastForward = (rawText) => {
-        /* 0.3.4.3：正式业务系统——后端未连接时如实提示，不提供演示流程 */
-        pushAi([say('⚠️ 后端服务未连接：正式业务系统不提供演示流程。请通过 DSH 正常打开本应用（后端随宿主自动启动）后重试。')]);
+      const doChat = async (text) => {
+        if (!isReal || !projectId) { onToast('请先打开服务端项目'); return; }
+        const epoch = requestEpoch.current;
+        setBusy(true);
+        try { await respondReal(text); }
+        catch (e) { if (e?.code !== 'STALE_PROJECT') pushAi([say('对话服务出错：' + e.message + '。可以重试。')]); }
+        finally { if (epoch === requestEpoch.current) setBusy(false); }
       };
 
       /* ── 用户输入分发：意图优先，阶段不再锁操作 ── */
       const respond = (text) => {
-        if (busy) { pushAi([say('正在处理上一条，请稍等…')]); return; }
+        if (!isReal || !projectId) { pushAi([say('请先新建或打开一个服务端项目')]); return; }
         const intent = detectIntent(text, { stage, ctx });
+        if (busy && intent.kind !== 'reset') { pushAi([say('正在处理上一条，请稍等…')]); return; }
         switch (intent.kind) {
           case 'reset': doReset(text); return;
           case 'revise': doRevise(text, intent); return;
@@ -1600,54 +1473,45 @@ window.__ModuleLoader__.load({
         if (isReal && projectId) {
           setBusy(true);
           try {
-            const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/reset', {
+            const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/conversation/message', {
               method: 'POST', headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ note: String(rawText || '').slice(0, 80) }), credentials: 'same-origin',
+              body: JSON.stringify({ text: String(rawText || '请全部清空'), model_id: modelId || null }), credentials: 'same-origin',
             });
             const j = await res.json();
             if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
             setBusy(false);
             setStage(j.stage || 'idle');
-            setCtx((c) => ({ ...c, outline: [] }));
-            setSel({ family: 'green-clean-business', count: 8 });
+            if (jobTimerRef.current) clearTimeout(jobTimerRef.current);
+            const snap=await (await projectFetch(API+'/api/projects/'+encodeURIComponent(projectId)+'/snapshot')).json();
+            setActiveJobId(null); setGenStep(-1); setPending([]); setCanvasShapes(null);
+            setCtx({ ...DEFAULT_CTX,topic:snap.meta?.title==='未命名汇报'?'':snap.meta?.title });
+            setSel({ family: 'green-clean-business', count: null });
             pushAi((j.messages || []).map((m) => say(m.text || '已推翻重来 🔄 这次想做什么主题的 PPT？')));
             if (onReloadProjects) onReloadProjects();
-          } catch (e) {
+          } catch (e) { if (e?.code === 'STALE_PROJECT') return;
             setBusy(false);
             pushAi([say('重置失败：' + (e && e.message ? e.message : e) + '。可稍后重试，或新建一个对话重新开始。')]);
           }
           return;
         }
-        /* 演示模式：本地重置 */
-        setStage('idle');
-        setCtx((c) => ({ ...c, outline: [], topic: '', scenario: null }));
-        setSel({ family: 'green-clean-business', count: 8 });
-        pushAi([say('⚠️ 后端服务未连接：重置需要后端执行（清空需求/大纲/材料/版本）。请通过 DSH 正常打开本应用后重试。')]);
+        onToast('后端未连接：无法执行重置');
       };
 
       /* ── 真实模式回合：POST 后端 → 卡片消息映射 → 阶段/上下文同步 ── */
       const respondReal = async (text) => {
-        setBusy(true);
+        const j = await postJson('/api/projects/' + encodeURIComponent(projectId) + '/conversation/message', { text, model_id: modelId || null });
+        absorbTurn(j);
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/conversation/message', {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ text, model_id: modelId || null }), credentials: 'same-origin',
-          });
-          const j = await res.json();
-          if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
-          setBusy(false);
-          setStage(j.stage);
-          const items = (j.messages || []).map((m) => ({ id: nid(), role: 'ai', kind: m.kind || 'text', text: m.text || '', payload: m.payload || {} }));
-          if (j.fallback) items.unshift(say('（真模型暂不可用，已切换本地引擎模式兜底）'));
-          const ocard = (j.messages || []).find((m) => m.kind === 'outline');
-          if (ocard && ocard.payload && ocard.payload.outline) setCtx((c) => ({ ...c, outline: ocard.payload.outline }));
-          if (j.stage === 'style') setCtx((c) => ({ ...c, outline: c.outline })); // 保持大纲供右侧预览
-          pushAi(items);
-          return j; // 供 ensureReadyForGenerate 等调用方读取服务端推进后的 stage
+          const r = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/snapshot', { credentials: 'same-origin' });
+          const snap = await r.json();
+          if (!r.ok || !snap?.ok) throw new Error(snap?.message || ('HTTP ' + r.status));
+          const count = snap.selection?.count || snap.brief?.page_count || snap.outline?.pages?.length || null;
+          setSel((s) => ({ ...s, count })); setCtx((c) => ({ ...c, topic: snap.meta.title, count }));
         } catch (e) {
-          setBusy(false);
-          pushAi([say('对话服务出错：' + (e && e.message ? e.message : e) + '。可以重试；若持续失败请稍后在项目首页重新打开。')]);
+          if (e?.code === 'STALE_PROJECT') throw e;
+          pushAi([say('对话已保存，状态刷新失败：' + e.message + '。可重新打开项目刷新。')]);
         }
+        return j;
       };
 
       /* 真实模式：大纲卡片确认 */
@@ -1655,21 +1519,21 @@ window.__ModuleLoader__.load({
         if (!isReal || !projectId) { proceedStyle(); return; }
         setBusy(true);
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/outline/confirm', {
+          const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/outline/confirm', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({}), credentials: 'same-origin',
           });
           const j = await res.json();
           if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
           /* 0.3.3：随大纲确认需求摘要（对话链过 WF-02 生成门禁；服务端 ensureBriefApproved 同款逻辑，此处双保险） */
-          await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/brief/confirm', {
+          await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/brief/confirm', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ note: '随大纲确认（对话页）' }), credentials: 'same-origin',
           }).catch(() => {});
           setBusy(false);
           setStage('style');
           pushAi([say('大纲确认 ✅。接下来选风格与页数。'), { id: nid(), role: 'ai', kind: 'style', payload: {} }]);
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           setBusy(false);
           onToast('确认失败：' + (e && e.message ? e.message : e));
         }
@@ -1679,48 +1543,36 @@ window.__ModuleLoader__.load({
       const archiveReal = async () => {
         if (!isReal || !projectId) return;
         try {
-          await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/archive', { method: 'POST', credentials: 'same-origin' });
+          await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/archive', { method: 'POST', credentials: 'same-origin' });
         } catch { /* 归档失败提示但不阻断 */ }
         if (onReloadProjects) onReloadProjects();
       };
 
       /* ── WF-04：确认风格与页数（真实：后端持久化 + WF-05 生成执行计划） ── */
       const confirmStyleReal = async (family, count) => {
-        setBusy(true);
-        try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/style', {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ family, count }), credentials: 'same-origin',
-          });
-          const j = await res.json();
-          if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
-          const r2 = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/plan', { method: 'POST', credentials: 'same-origin' });
-          const j2 = await r2.json();
-          if (!r2.ok || !j2.ok) throw new Error((j2 && j2.message) || ('HTTP ' + r2.status));
-          setBusy(false);
-          setStage('pages');
-          setCtx((c) => ({ ...c, family, count, pageLayouts: j2.pageLayouts }));
-          pushAi([
-            say('已按「' + famDisplay(ctx, family) + ' · ' + count + ' 页」生成执行计划：每页版式都来自模板库' + (family === (ctx.customStyle && ctx.customStyle.id) ? '，自定义风格将基于你模板的母版生成' : '，参考图构图包优先') + '。逐页看看，不满意的可以「换一换」：'),
-            { id: nid(), role: 'ai', kind: 'pages', payload: { pageLayouts: j2.pageLayouts } },
-          ]);
-        } catch (e) {
-          setBusy(false);
-          onToast('风格确认失败：' + (e && e.message ? e.message : e));
-        }
+        const j = await postJson('/api/projects/' + encodeURIComponent(projectId) + '/style', { family, count });
+        const j2 = await postJson('/api/projects/' + encodeURIComponent(projectId) + '/plan', {});
+        setStage('pages');
+        const selectedCount = j.selection?.count || count;
+        setSel({ family, count: selectedCount });
+        setCtx((c) => ({ ...c, family, count: selectedCount, pageLayouts: j2.pageLayouts }));
+        pushAi([
+          say('已按「' + famDisplay(ctx, family) + ' · ' + selectedCount + ' 页」生成执行计划：每页版式都来自模板库' + (family === (ctx.customStyle && ctx.customStyle.id) ? '，自定义风格将基于你模板的母版生成' : '，已批准的可生成版式') + '。逐页看看，不满意的可以「换一换」：'),
+          { id: nid(), role: 'ai', kind: 'pages', payload: { pageLayouts: j2.pageLayouts } },
+        ]);
       };
 
       /* ── WF-05：换一换（真实：后端 reroll 同关系版式池） ── */
       const rerollReal = async (n) => {
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/plan/reroll', {
+          const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/plan/reroll', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ n }), credentials: 'same-origin',
           });
           const j = await res.json();
           if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
           if (j.pageLayouts) setCtx((c) => ({ ...c, pageLayouts: j.pageLayouts }));
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           onToast('换一换失败：' + (e && e.message ? e.message : e));
         }
       };
@@ -1729,7 +1581,7 @@ window.__ModuleLoader__.load({
       const importTemplateReal = async (file) => {
         setBusy(true);
         try {
-          const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/style/template?filename=' + encodeURIComponent(file.name), {
+          const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/style/template?filename=' + encodeURIComponent(file.name), {
             method: 'POST', body: file, credentials: 'same-origin',
           });
           const j = await res.json();
@@ -1740,7 +1592,7 @@ window.__ModuleLoader__.load({
           setCtx((cc) => ({ ...cc, customStyle: custom }));
           setSel((s) => ({ ...s, family: custom.id }));
           pushAi([say('已解析你的模板「' + file.name + '」🎨：主题「' + c.theme_name + '」，主色板 ' + c.palette.length + ' 色（' + c.palette.slice(0, 3).join(' ') + '…），母版 ' + c.masters + ' 页，字体 ' + custom.fonts + '。已加入风格选项并默认选中——页数选好后点「确认风格与页数」。')]);
-        } catch (e) {
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
           setBusy(false);
           pushAi([say('模板解析失败：' + (e && e.message ? e.message : e) + '。可重试或改用内置风格。')]);
         }
@@ -1749,24 +1601,26 @@ window.__ModuleLoader__.load({
       /* ── 附件（真实：上传到后端材料库；mock：本地解析演示）──
          hpDrop-20261012：抽出单文件上传入口 uploadMaterial(f)，供附件按钮（onPickFile）与拖拽落放共用 */
       const uploadMaterial = async (f) => {
+        if (!isReal || !projectId) { onToast('请先新建或打开项目，再上传材料'); return; }
         setMsgs((prev) => [...prev, { id: nid(), role: 'user', kind: 'text', text: '📎 上传材料：' + f.name }]);
         if (isReal && projectId) {
           try {
-            const res = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/materials?filename=' + encodeURIComponent(f.name), {
+            const res = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/materials?filename=' + encodeURIComponent(f.name), {
               method: 'POST', body: f, credentials: 'same-origin',
             });
             const j = await res.json();
             if (!res.ok || !j.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
             const ext = (f.name.split('.').pop() || '').toLowerCase();
             const mat = {
+              ...j.entry,
               id: j.entry.id, name: j.entry.name, ext,
               icon: MAT_ICONS[ext] || '📎',
               pages: j.entry.size > 1048576 ? (j.entry.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(j.entry.size / 1024)) + ' KB',
-              summary: j.entry.text_extracted ? '已提取文本 ' + j.entry.text_chars + ' 字，可作大纲与字段引用' : '已登记到项目材料库（内容分析随知识治理接入）',
+              summary: j.entry.role === 'visual-reference' ? '图片版式参考，不作为正文依据' : j.entry.text_extracted ? '已提取文本 ' + j.entry.text_chars + ' 字，可作大纲与字段引用' : '正文提取未完成：' + (j.entry.extraction_error || '格式暂不支持'),
             };
-            setCtx((c) => ({ ...c, materials: [...c.materials, mat] }));
-            setMsgs((prev) => [...prev, { id: nid(), role: 'ai', kind: 'text', text: '已收到「' + f.name + '」✅ 材料清单见右侧。' + (j.deduplicated ? '（与已有材料相同，已去重）' : '') + (stage === 'material' ? '继续上传，或说「继续」开始拟大纲。' : '') }]);
-          } catch (err) {
+            setCtx((c) => ({ ...c, materials: [...c.materials.filter((m) => m.id !== mat.id), mat] }));
+            setMsgs((prev) => [...prev, { id: nid(), role: 'ai', kind: 'text', text: '已收到「' + f.name + '」✅ 材料清单见右侧。' + (j.entry.role === 'visual-reference' ? '已保留为图片版式参考，不提取正文，也不作为事实依据。' : '') + (j.deduplicated ? '（与已有材料相同，已去重）' : '') + (stage === 'material' ? '继续上传，或说「继续」开始拟大纲。' : '') }]);
+          } catch (err) { if (err?.code === 'STALE_PROJECT') return;
             setMsgs((prev) => [...prev, { id: nid(), role: 'ai', kind: 'text', text: '上传失败：' + (err && err.message ? err.message : err) }]);
           }
           return;
@@ -1785,10 +1639,13 @@ window.__ModuleLoader__.load({
         ]);
       };
       const onPickFile = async (e) => {
-        const fs = e.target.files; e.target.value = '';
-        if (fs && fs.length) { for (const f of Array.prototype.slice.call(fs)) await uploadMaterial(f); }
+        const files = Array.from(e.target.files || []); e.target.value = '';
+        for (const f of files) await uploadMaterial(f);
       };
-      const removeMat = (id) => setCtx((c) => ({ ...c, materials: c.materials.filter((m) => m.id !== id) }));
+      const removeMat = async (id) => {
+        try { const r = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/materials/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'same-origin' }); const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.message || '移除失败'); setCtx((c) => ({ ...c, materials: c.materials.filter((m) => m.id !== id) })); }
+        catch (e) { if (e?.code === 'STALE_PROJECT') return; onToast('材料移除失败：' + e.message); }
+      };
 
       /* ── 拖拽上传附件（hpDrop-20261012）：与知识库/会议助手/政策解读同款 ——
             只拦截含文件的拖拽（dataTransfer.types 含 'Files'），文本/富文本拖放保持默认行为；
@@ -1892,7 +1749,7 @@ window.__ModuleLoader__.load({
       };
       const onResizeDown = (e) => {
         e.preventDefault();
-        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { if (err?.code === 'STALE_PROJECT') return;}
         const el = chatRef.current;
         const live = (el && el.offsetWidth) || chatW
           || Math.round((typeof window !== 'undefined' ? window.innerWidth : 1200) / 2);
@@ -1964,7 +1821,7 @@ window.__ModuleLoader__.load({
           ta.focus();
           const n = (ta.value || '').length;
           if (typeof ta.setSelectionRange === 'function') ta.setSelectionRange(n, n);
-        } catch (e) { /* 聚焦失败不影响已填入的文案 */ }
+        } catch (e) { if (e?.code === 'STALE_PROJECT') return; /* 聚焦失败不影响已填入的文案 */ }
       }, [input]);
 
       /* ═══ 对话流里的卡片渲染 ═══ */
@@ -1980,6 +1837,9 @@ window.__ModuleLoader__.load({
           h('span', { className: 'hp-sub', style: { fontSize: 11 } }, '或直接输入调整意见')));
 
       const cardStyle = () => h('div', null,
+        h('select', { className: 'hp-select', value: sel.family, onChange: (e) => setSel({ ...sel, family: e.target.value }) },
+          (data.styles || []).map((s) => h('option', { key: s.id, value: s.id }, s.name || s.id)),
+          ctx.customStyle ? h('option', { value: ctx.customStyle.id }, ctx.customStyle.name) : null),
         h('div', { className: 'hp-pick-grid', style: { gridTemplateColumns: '1fr 1fr', marginBottom: 10 } },
           ['green-clean-business', 'green-office-illustrated'].map((fam) => h('button', {
             key: fam, type: 'button', className: 'hp-pick' + (sel.family === fam ? ' on' : ''),
@@ -2008,6 +1868,7 @@ window.__ModuleLoader__.load({
             style: sel.count === c ? { background: 'var(--hp-accent)', color: 'var(--hp-accent-ink)' } : null,
             onClick: () => setSel({ ...sel, count: c }),
           }, c + ' 页'))),
+        h('label', { className: 'hp-row', style: { gap: 8, marginBottom: 10 } }, '当前页数', h('input', { type: 'number', className: 'hp-input', min: 2, max: 32, value: sel.count || ctx.outline.length || '', onChange: (e) => setSel({ ...sel, count: Number(e.target.value) }), style: { width: 90 } })),
         h(Btn, { kind: 'pri', sm: true, disabled: stage !== 'style', onClick: () => proceedPages(sel.family, sel.count) }, '✓ 确认风格与页数'));
 
       const cardPages = (msg) => h('div', null,
@@ -2022,10 +1883,7 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'hp-tid' }, lay ? lay.id : p.layoutId),
                   h(Btn, { kind: 'ghost', sm: true, disabled: stage !== 'pages', onClick: () => {
                     if (isReal && projectId) { rerollReal(p.n); return; }
-                    const pool = poolOf(p.rel, ctx.family);
-                    const alt = (p.alt + 1) % pool.length;
-                    const next = ctx.pageLayouts.map((q, qi) => (qi === i ? { ...q, alt, layoutId: pool[alt].id } : q));
-                    setCtx({ ...ctx, pageLayouts: next });
+                    onToast('请先打开服务端项目');
                   } }, '换一换'))));
           })),
         h(Btn, { kind: 'pri', sm: true, disabled: stage !== 'pages', onClick: startGenerate }, '✨ 确认生成'));
@@ -2050,7 +1908,7 @@ window.__ModuleLoader__.load({
       const cardArchived = () => h('div', null,
         h('div', { className: 'hp-note', style: { fontSize: 12 } },
           h('span', null, '📦'),
-          h('span', null, (ctx.downloadUrl ? '已导出「' + ctx.exportName + '」并闭环归档：版本定格 ' + ctx.version + '。' : '项目已归档：版本定格 ' + ctx.version + '，五项检查全部通过。') + '项目首页只读保留，可随时重新打开。')),
+          h('span', null, (ctx.downloadUrl ? '已导出「' + ctx.exportName + '」并闭环归档：版本定格 ' + ctx.version + '。' : '项目已归档：版本定格 ' + ctx.version + '，实际报告可在画布查看。') + '项目首页只读保留，可随时重新打开。')),
         ctx.downloadUrl ? h('div', { className: 'hp-row', style: { gap: 8, marginTop: 8 } },
           h('a', {
             href: ctx.downloadUrl, download: ctx.exportName || 'deck.pptx',
@@ -2136,7 +1994,7 @@ window.__ModuleLoader__.load({
         paneHead('逐页版式', ctx.pageLayouts.length + ' 页 · ' + famDisplay(ctx)),
         ctx.customStyle && ctx.family === ctx.customStyle.id ? h('div', { className: 'hp-note', style: { marginBottom: 12 } },
           h('span', null, '🎨'),
-          h('span', null, '自定义风格将基于你模板的母版生成（演示：版式缩略图暂以通用版式占位）。')) : null,
+          h('span', null, '自定义风格将基于你模板的母版生成，以已批准模板的实际页为准。')) : null,
         h('div', { className: 'hp-tgrid' },
           ctx.pageLayouts.map((p) => {
             const lay = L(p.layoutId);
@@ -2158,64 +2016,25 @@ window.__ModuleLoader__.load({
               h('div', { style: { flex: 1 } },
                 h('div', { style: { fontSize: 13, fontWeight: run || done ? 600 : 400, color: done || run ? undefined : 'var(--dsw-alias-label-tertiary,#94a3b8)' } }, label),
                 run ? h('div', { className: 'hp-progress fast', style: { marginTop: 6 } },
-                  h('i', { onAnimationEnd: () => setGenStep((s) => (s === i ? i + 1 : s)) })) : null));
+                  h('i', {})) : null));
           }),
+          jobProgress ? h('div', null, '任务状态：' + jobProgress.status + ' · 进度 ' + jobProgress.progress + '% · 已用 ' + Math.round((Date.now() - Date.parse(jobProgress.created_at)) / 1000) + ' 秒') : null,
+          activeJobId ? h('div', { className: 'hp-row', style: { gap: 8 } },
+            h(Btn, { sm: true, onClick: async () => { try { const r = await projectFetch(API + '/api/jobs/' + activeJobId + '/cancel', { method: 'POST', credentials: 'same-origin' }); const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.message || '取消失败'); onToast('已请求取消，等待任务停止'); pollJob(activeJobId); } catch (e) { onToast('取消失败：' + e.message); } } }, '取消任务'),
+            h(Btn, { sm: true, onClick: () => pollJob(activeJobId) }, '恢复任务进度')) : null,
           genStep >= GEN_STEPS.length ? h('div', { className: 'hp-note', style: { marginTop: 10 } },
             h('span', null, '✅'),
             h('span', null, '全部阶段完成，画布就绪。')) : null));
 
       /* 生成完成后无缝切画布 */
-      useEffect(() => { if (stage === 'generating' && genStep >= GEN_STEPS.length) finishGenerate(); });
 
       const paneCanvas = h(CanvasView, {
-        key: 'studio-canvas', data,
-        project: { title: ctx.topic || '对话项目' },
-        onToast, apiRef: canvasApiRef,
-        initialVersion: ctx.version, initialSha: ctx.sha,
+        key: projectId + ':' + ctx.version, data, projectId, modelId, onToast,
+        onUpdated: (result) => { setCtx((c) => ({ ...c, version: result.version, sha: result.sha256, shaFull: result.sha256, renders: result.report?.render_pngs || [] })); setStage('done'); if (onReloadProjects) onReloadProjects(); },
       });
 
       /* 真实画布（WF-07）：渲染样张 + 页导航 + 形状属性面板 + 修订队列（画布点选叠层待 inspection 提供坐标后升级） */
-      const paneRenders = () => {
-        const pngs = ctx.renders || [];
-        const page = Math.min(canvasPage, pngs.length) || 1;
-        const shapes = canvasShapes && canvasShapes.page === page ? canvasShapes : null;
-        return h('div', null,
-          paneHead('画布 · ' + (ctx.version || ''), '点击形状编辑文字 → 加入队列 → 应用生成新版本（SHA256 乐观锁）'),
-          h('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 } },
-            h('div', null,
-              pngs[page - 1] ? h('div', { className: 'hp-card', style: { overflow: 'hidden' } },
-                h('img', {
-                  src: API + '/api/huiwen-ppt/api/data-file/projects/' + encodeURIComponent(projectId) + '/' + pngs[page - 1],
-                  alt: '第 ' + page + ' 页渲染', style: { width: '100%', display: 'block' },
-                })) : null,
-              h('div', { className: 'hp-row', style: { gap: 6, marginTop: 10, flexWrap: 'wrap' } },
-                pngs.map((_, i) => h('button', {
-                  key: i, type: 'button', className: 'hp-suggbtn',
-                  style: page === i + 1 ? { background: 'var(--hp-accent)', color: 'var(--hp-accent-ink)' } : null,
-                  onClick: () => loadShapes(i + 1),
-                }, 'P' + (i + 1))))),
-            h('div', null,
-              h('div', { className: 'hp-card', style: { padding: '12px 14px' } },
-                h('div', { style: { fontSize: 12, fontWeight: 700, marginBottom: 8 } }, '第 ' + page + ' 页 · 可编辑文字形状'),
-                !shapes ? h('div', { className: 'hp-sub', style: { fontSize: 12 } }, page === canvasPage ? '加载中…' : '点击页码加载形状')
-                  : shapes.error ? h('div', { className: 'hp-sub', style: { fontSize: 12 } }, shapes.error)
-                  : !shapes.shapes.length ? h('div', { className: 'hp-sub', style: { fontSize: 12 } }, '本页没有可编辑文字对象（参考图版式）')
-                  : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-                      shapes.shapes.map((s) => h('div', { key: s.shape_id },
-                        h('div', { className: 'hp-row', style: { justifyContent: 'space-between', fontSize: 11 } },
-                          h('span', { className: 'hp-tid' }, '#' + s.shape_id + ' ' + s.name),
-                          h('button', { type: 'button', className: 'hp-suggbtn', style: { fontSize: 10 }, title: '加入修订队列', onClick: () => queueEdit(s, s.text) }, '✎')),
-                        h('textarea', {
-                          className: 'hp-textarea', style: { minHeight: 34, fontSize: 12, marginTop: 4 },
-                          defaultValue: s.text,
-                          onBlur: (e) => { if (e.target.value !== s.text) queueEdit(s, e.target.value); },
-                        })))),
-                pending.length ? h('div', { style: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--dsw-alias-border-l1,#e2e8f0)' } },
-                  h('div', { style: { fontSize: 11, marginBottom: 6 } }, '修订队列（' + pending.length + ' 项）'),
-                  pending.map((p, i) => h('div', { key: i, className: 'hp-tid', style: { marginBottom: 2 } }, 'P' + p.slide + ' #' + p.shape_id + ' ' + p.name)),
-                  h(Btn, { kind: 'pri', sm: true, disabled: busy, onClick: applyPending, style: { marginTop: 6 } }, '⚡ 应用修订生成新版本'))
-                  : null))));
-      };
+      const paneRenders = () => paneCanvas;
 
       const pane = stage === 'idle' || stage === 'material' ? paneWelcome
         : stage === 'outline' ? paneOutline
@@ -2309,7 +2128,7 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'hp-compose-gap' }),
                 models.length ? h('select', {
                   className: 'hp-compose-model',
-                  value: modelId, onChange: (e) => setModelId(e.target.value),
+                  value: modelId, onChange: async (e) => { const id=e.target.value; if(!projectId){setModelId(id);return;} try { const j=await postJson('/api/projects/'+encodeURIComponent(projectId)+'/model',{model_id:id}); if(!j.ok)throw new Error(j.message||'模型保存失败');setModelId(id); } catch(err){if(err.code!=='STALE_PROJECT')onToast(err.message);} },
                   title: '对话模型（真实模式按项目记忆；含 DSH 同步模型）', 'aria-label': '对话模型',
                 }, (() => {
                   const groups = [];
@@ -2336,398 +2155,193 @@ window.__ModuleLoader__.load({
           })),
         /* ── 右：演化工作区 ── */
         h('div', { className: 'hp-stage-pane' + (isCanvasStage ? ' tight' : '') },
-          isCanvasStage ? (isReal && ctx.renders && ctx.renders.length ? paneRenders() : paneCanvas) : pane));
+          ctx.materials.some((m) => m.role === 'visual-reference') ? h('details', { className: 'hp-card', style: { marginBottom: 12 } }, h('summary', null, '图片版式参考（不作为正文依据）'), ctx.materials.filter((m) => m.role === 'visual-reference').map((m) => h('div', { key: m.id }, h('a', { href: API + '/api/data-file/projects/' + encodeURIComponent(projectId) + '/' + m.file, target: '_blank', rel: 'noopener noreferrer' }, m.name)))) : null,
+          isCanvasStage ? paneCanvas : pane,
+          projectId ? h(React.Fragment, null, h(ExportHistory, { key: 'exports:'+projectId, projectId, onToast }), h(MaterialKnowledge, { key: projectId, projectId, materials: ctx.materials, modelId, onToast })) : null));
     }
 
     /* ════════ 视图四：画布页 ════════ */
     const KIND_LABEL = { sp: '形状', pic: '图片', graphicFrame: '表格/图表', cxnSp: '连接线', grpSp: '组合' };
     const clone = (o) => JSON.parse(JSON.stringify(o));
 
-    function CanvasView({ data, project, onToast, apiRef, initialVersion, initialSha }) {
-      const [slide, setSlide] = useState(1);
-      const [objs, setObjs] = useState(() => clone(data.canvas));
-      const [sel, setSel] = useState(null);
-      const [zoom, setZoom] = useState(0.75);
-      const [ops, setOps] = useState([]);
-      const [redoStack, setRedoStack] = useState([]);
-      const [version, setVersion] = useState(initialVersion || 'v0003');
-      const [sha, setSha] = useState(initialSha || 'a3f8c2e1…9d04');
-      const [tab, setTab] = useState('props');
-      const [queueOpen, setQueueOpen] = useState(false);
-      const [applyOpen, setApplyOpen] = useState(false);
-      const [compareOpen, setCompareOpen] = useState(false);
-      const [annotations, setAnnotations] = useState([
-        { id: 'an-1', slide: 4, type: '框选', text: '第三步「交接」节点建议与右侧输出对齐', version: 'v0003', sha: 'a3f8c2e1…9d04' },
-      ]);
-      const [noteForm, setNoteForm] = useState({ type: '框选', text: '' });
-      const [fields, setFields] = useState({});
-      const opSeq = useRef(1);
-      const dragRef = useRef(null);
-      const outerRef = useRef(null);
+    function MaterialKnowledge({ projectId, materials, modelId, onToast }) {
+      const [facts, setFacts] = useState([]), [knowledge, setKnowledge] = useState([]), [text, setText] = useState(''), [source, setSource] = useState('对话补充'), [locator, setLocator] = useState(''), [busy, setBusy] = useState(false);
+      const alive = useRef(true);
+      useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[projectId]);
+      const request = async (suffix, body) => { const r = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/knowledge/facts' + suffix, { credentials: 'same-origin', ...(body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}) }); const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.message || '知识操作失败'); return j; };
+      const load = async () => { const [r, k] = await Promise.all([request(''), fetch(API + '/api/knowledge', { credentials: 'same-origin' }).then((r) => r.json())]); if(alive.current) { setFacts(r.facts || []); setKnowledge(k.knowledge || []); } };
+      useEffect(() => { if (projectId) load().catch((e) => onToast(e.message)); }, [projectId]);
+      const action = async (fn) => { setBusy(true); try { await fn(); await load(); } catch (e) { if(alive.current) onToast('知识操作失败：' + e.message); } finally { if(alive.current)setBusy(false); } };
+      if (!projectId) return null;
+      return h('details', { className: 'hp-card', style: { marginTop: 12, padding: 10 } }, h('summary', null, '材料事实候选与知识库'),
+        h(Btn, { sm: true, disabled: busy, onClick: () => action(() => request('/analyze', { model_id: modelId })) }, '用真实模型提取候选'),
+        h('textarea', { className: 'hp-textarea', value: text, onChange: (e) => setText(e.target.value), placeholder: '补充事实候选（确认后才入库）' }),
+        h('select', { className: 'hp-select', value: source, onChange: (e) => setSource(e.target.value) }, h('option', { value: '对话补充' }, '对话补充'), (materials || []).filter((m) => m.role !== 'visual-reference').map((m) => h('option', { key: m.id, value: m.name }, m.name))),
+        h('input', { className: 'hp-input', value: locator, onChange: (e) => setLocator(e.target.value), placeholder: '来源页 / 段落 / 表行 / 单元格' }),
+        h(Btn, { sm: true, disabled: busy || !text.trim(), onClick: () => action(async () => { await request('', { text, source_name: source, locator }); setText(''); }) }, '登记候选'),
+        facts.map((f) => h('div', { key: f.id }, f.text + ' · ' + f.source_name + ' · ' + f.locator + ' · ' + f.status, f.status !== 'confirmed' ? h(Btn, { sm: true, disabled: busy, onClick: () => action(() => request('/' + f.id + '/confirm', { confirmed_by: '用户' })) }, '确认入库') : null)),
+        h('div', null, '已确认知识（模板示例与材料事实分别标注）'), knowledge.map((f) => h('div', { key: f.id + ':' + f.project_id }, (f.type === 'material-fact' ? '材料事实' : '模板示例') + ' · ' + f.text + ' · 来源 SHA ' + f.source_sha256)));
+    }
 
-      const list = objs[String(slide)] || [];
-      const page = SLIDE_PAGES.find((p) => p.n === slide);
-      const pageLayout = data.layouts.find((l) => l.id === (page && page.layout)) || null;
-      const selObj = list.find((o) => o.shape_id === sel) || null;
-      const overlay = list.filter((o) => !(o.w >= 1200 && o.h >= 700)); // 整页位图不作为可编辑对象
+    function ExportHistory({ projectId, onToast }) {
+      const [list, setList] = useState([]);
+      const load = async () => { const r = await fetch(API+'/api/projects/'+encodeURIComponent(projectId)+'/exports', {credentials:'same-origin'}); const j=await r.json(); if(!r.ok||!j.ok)throw new Error(j.message||'读取导出失败'); return j.exports||[]; };
+      useEffect(()=>{let alive=true;load().then(list=>{if(alive)setList(list);}).catch(e=>{if(alive)onToast(e.message);});return()=>{alive=false;};},[projectId]);
+      return h('details', {className:'hp-card',style:{padding:10,marginTop:12}}, h('summary',null,'历史导出（独立文件）'), h(Btn,{sm:true,onClick:()=>load().then(setList).catch(e=>onToast(e.message))},'刷新导出'), list.map(e=>h('div',{key:e.id},h('a',{href:API+'/api/projects/'+encodeURIComponent(projectId)+'/download?export_id='+encodeURIComponent(e.id)},e.download_name+' · '+e.sha256))));
+    }
 
-      const findObj = (sl, id) => (objs[String(sl)] || []).find((o) => o.shape_id === id);
-      const updateObj = (sl, id, patch) => setObjs((prev) => ({
-        ...prev,
-        [String(sl)]: (prev[String(sl)] || []).map((o) => (o.shape_id === id ? { ...o, ...patch } : o)),
-      }));
-      const pushOp = (op) => { setOps((prev) => [...prev, { ...op, id: 'op-' + (opSeq.current++) }]); setRedoStack([]); };
-      const applyOpVals = (op, dir) => {
-        const v = op[dir];
-        if (!v) return;
-        if (op.op === 'geometry') updateObj(op.slide, op.shape_id, { x: v.x, y: v.y, w: v.w, h: v.h });
-        else if (op.op === 'text') updateObj(op.slide, op.shape_id, { text: v.text });
-      };
-      const undo = () => {
-        const last = ops[ops.length - 1];
-        if (!last) return;
-        applyOpVals(last, 'prev');
-        setOps(ops.slice(0, -1));
-        setRedoStack([...redoStack, last]);
-      };
-      const redo = () => {
-        const last = redoStack[redoStack.length - 1];
-        if (!last) return;
-        applyOpVals(last, 'next');
-        setRedoStack(redoStack.slice(0, -1));
-        setOps([...ops, last]);
-      };
-      const removeOp = (id) => {
-        const op = ops.find((o) => o.id === id);
-        if (op) applyOpVals(op, 'prev');
-        setOps(ops.filter((o) => o.id !== id));
-      };
+    function OrphanExports({ onToast }) {
+      const [list,setList]=useState([]);
+      const load=async()=>{const r=await fetch(API+'/api/exports/orphans',{credentials:'same-origin'});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||'读取失败');setList(j.exports||[]);};
+      useEffect(()=>{load().catch(e=>onToast(e.message));},[]);
+      return h('details',{className:'hp-card',style:{padding:10,marginBottom:12}},h('summary',null,'孤立导出清单'),h(Btn,{sm:true,onClick:()=>load().catch(e=>onToast(e.message))},'刷新清单'),list.length?list.map(e=>h('div',{key:e.project_id},e.project_id+' · '+e.file,h(Btn,{sm:true,onClick:async()=>{try{const r=await fetch(API+'/api/exports/orphans/'+encodeURIComponent(e.project_id),{method:'DELETE',credentials:'same-origin'});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||'删除失败');await load();onToast('已直接删除孤立导出 '+e.project_id);}catch(err){onToast(err.message);}}},'直接删除'))):'暂无孤立导出');
+    }
 
-      /* ── 拖拽（指针事件 + 缩放换算；位移进入待应用队列） ── */
-      const onObjPointerDown = (e, o) => {
-        e.preventDefault(); e.stopPropagation();
-        setSel(o.shape_id);
-        if (o.locked) { onToast('「' + o.name + '」为组合/旋转对象：已在画布锁定，请在 WPS 中处理后重新载入'); return; }
-        if (!o.editable_geometry) return;
-        try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-        dragRef.current = { id: o.shape_id, sx: e.clientX, sy: e.clientY, ox: o.x, oy: o.y, moved: false };
+    function RenderSettings({ onToast }) {
+      const [settings, setSettings] = useState(null), [token, setToken] = useState('');
+      const load = () => fetch(API + '/api/render-config', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => { if (j.ok) setSettings(j.render); });
+      useEffect(() => { load().catch(() => {}); }, []);
+      const save = async () => { try { const r = await fetch(API + '/api/render-config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ engine: settings.engine, url: settings.remote.url, ...(token ? { token } : {}) }), credentials: 'same-origin' }); const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.message || '配置失败'); setToken(''); onToast('渲染配置已保存：'+(settings.engine==='libreoffice'?'LibreOffice 可独立使用':j.engines?.render?.[settings.engine]?.available?'远端健康探测可用':'远端暂不可用，请检查服务地址和原生引擎')); await load(); } catch (e) { onToast('渲染配置失败：' + e.message); } };
+      return h('details', { className: 'hp-card', style: { marginBottom: 12, padding: 10 } }, h('summary', null, '渲染引擎设置'), settings ? h('div', null,
+        h('select', { className: 'hp-select', value: settings.engine, onChange: (e) => setSettings({ ...settings, engine: e.target.value }) }, ['libreoffice', 'wps', 'powerpoint'].map((engine) => h('option', { key: engine, value: engine }, engine))),
+        h('input', { className: 'hp-input', value: settings.remote.url, placeholder: 'Windows 渲染服务地址', onChange: (e) => setSettings({ ...settings, remote: { ...settings.remote, url: e.target.value } }) }),
+        h('input', { className: 'hp-input', type: 'password', value: token, placeholder: settings.remote.configured ? '已有令牌，留空保留' : 'Windows 服务调用令牌', onChange: (e) => setToken(e.target.value) }),
+        h(Btn, { sm: true, onClick: save }, '保存并探测')) : '读取配置中…');
+    }
+
+    function CanvasView({ projectId, data, onToast, onUpdated, modelId }) {
+      const [snapshot, setSnapshot] = useState(null);
+      const [page, setPage] = useState(1);
+      const [shapes, setShapes] = useState(null);
+      const [selected, setSelected] = useState('');
+      const [queue, setQueue] = useState([]);
+      const [redo, setRedo] = useState([]);
+      const [notes, setNotes] = useState([]);
+      const [note, setNote] = useState('');
+      const [versions, setVersions] = useState([]);
+      const [compareTo, setCompareTo] = useState('');
+      const [comparison, setComparison] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const [error, setError] = useState('');
+      const [zoom, setZoom] = useState(1);
+      const [asset, setAsset] = useState('');
+      const drag = useRef(null);
+      const alive = useRef(true);
+      useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, [projectId]);
+      const request = async (suffix, body, method) => {
+        const response = await fetch(API + '/api/projects/' + encodeURIComponent(projectId) + suffix, {
+          method: method || (body ? 'POST' : 'GET'), credentials: 'same-origin',
+          ...(body ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}),
+        });
+        const j = await response.json();
+        if (!alive.current) throw Object.assign(new Error('项目已切换'), { code: 'STALE_PROJECT' });
+        if (!response.ok || !j.ok) throw new Error(j.message || ('HTTP ' + response.status));
+        return j;
       };
-      const onObjPointerMove = (e) => {
-        const d = dragRef.current;
-        if (!d) return;
-        const dx = (e.clientX - d.sx) / zoom, dy = (e.clientY - d.sy) / zoom;
-        if (!d.moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
-        d.moved = true;
-        updateObj(slide, d.id, { x: Math.round((d.ox + dx) * 10) / 10, y: Math.round((d.oy + dy) * 10) / 10 });
+      const load = async (p) => {
+        try {
+          const [snap, shapeData, annotations, list] = await Promise.all([
+            request('/snapshot'), request('/shapes?page=' + p), request('/annotations'), request('/versions'),
+          ]);
+          setSnapshot(snap); setShapes(shapeData); setNotes(annotations.annotations || []); setVersions(list.versions || []);
+          setPage(p); setError('');
+        } catch (e) { if (e.code !== 'STALE_PROJECT') setError(e.message); }
       };
-      const onObjPointerUp = () => {
-        const d = dragRef.current;
-        dragRef.current = null;
-        if (d && d.moved) {
-          const o = findObj(slide, d.id);
-          if (o) pushOp({ slide, shape_id: d.id, op: 'geometry', prev: { x: d.ox, y: d.oy, w: o.w, h: o.h }, next: { x: o.x, y: o.y, w: o.w, h: o.h }, label: '移动「' + o.name + '」→ (' + o.x + ', ' + o.y + ')' });
+      useEffect(() => { if (projectId) load(1); }, [projectId]);
+      const append = (op) => { setQueue((q) => [...q, op]); setRedo([]); };
+      const base = () => ({ version: snapshot?.meta?.version, expected_sha256: snapshot?.meta?.source_sha256 });
+      const update = async (operation) => {
+        setBusy(true);
+        try {
+          const result = await operation();
+          if (result.version) { setQueue([]); setRedo([]); setComparison(null); if (onUpdated) onUpdated(result); }
+          await load(page); onToast('操作已完成' + (result.version ? ' · ' + result.version : ''));
+          return result;
+        } catch (e) { if (e.code !== 'STALE_PROJECT') { setError(e.message); onToast('操作失败：' + e.message); } }
+        finally { if (alive.current) setBusy(false); }
+      };
+      const apply = () => update(() => request('/patch', { ...base(), source: 'canvas', note: '画布真实编辑', operations: queue }));
+      const current = shapes?.shapes?.find((s) => s.shape_id === selected);
+      const geometry = (s) => {
+        const latest = [...queue].reverse().find((op) => op.op === 'geometry' && op.slide === page && op.shape_id === s.shape_id);
+        return { ...(s.position || {}), ...(latest || {}) };
+      };
+      const field = (label, value, change, key) => h('label', { key, className: 'hp-row', style: { gap: 6, marginTop: 5 } }, label,
+        h('input', { key: snapshot?.meta?.version + ':' + page + ':' + selected + ':' + key, type: 'number', className: 'hp-input', defaultValue: value, onBlur: (e) => change(Number(e.target.value)), style: { width: 96 } }));
+      const image = (version, rel) => rel ? API + '/api/data-file/projects/' + encodeURIComponent(projectId) + '/' + rel : null;
+      const waitJob = async (start) => {
+        while (alive.current) {
+          const r = await fetch(API + '/api/jobs/' + start.job_id, { credentials: 'same-origin' });
+          const j = await r.json(); if (!alive.current) throw Object.assign(new Error('项目已切换'), {code:'STALE_PROJECT'}); if (!r.ok || !j.ok) throw new Error(j.message || '查询任务失败');
+          if (j.job.status === 'done') return j.job.result;
+          if (['failed', 'cancelled', 'interrupted'].includes(j.job.status)) throw new Error(j.job.error?.message || j.job.status);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
+        throw Object.assign(new Error('项目已切换'), { code: 'STALE_PROJECT' });
       };
-
-      /* ── 属性面板编辑提交 ── */
-      const commitGeom = (o, key, raw) => {
-        const v = parseFloat(raw);
-        if (isNaN(v) || v === o[key]) return;
-        const next = { x: o.x, y: o.y, w: o.w, h: o.h, [key]: v };
-        pushOp({ slide, shape_id: o.shape_id, op: 'geometry', prev: { x: o.x, y: o.y, w: o.w, h: o.h }, next, label: '调整「' + o.name + '」' + ({ x: 'X', y: 'Y', w: '宽', h: '高' })[key] + ' = ' + v });
-        updateObj(slide, o.shape_id, { [key]: v });
-      };
-      const commitText = (o, raw) => {
-        const v = String(raw || '');
-        if (v === (o.text || '')) return;
-        pushOp({ slide, shape_id: o.shape_id, op: 'text', prev: { text: o.text || '' }, next: { text: v }, label: '修改「' + o.name + '」文字' });
-        updateObj(slide, o.shape_id, { text: v });
-      };
-      const commitFields = () => {
-        const vals = fields[slide] || {};
-        const filled = Object.keys(vals).filter((k) => String(vals[k] || '').trim());
-        if (!filled.length) { onToast('请先填写字段'); return; }
-        pushOp({ slide, shape_id: null, op: 'fields', prev: null, next: clone(vals), label: '填充字段（第 ' + slide + ' 页 · ' + filled.length + ' 项）' });
-        onToast('字段修改已写入待应用队列');
-      };
-
-      /* ── 对话指令注入（双通道：对话修改直达画布待应用队列） ── */
-      useEffect(() => {
-        if (!apiRef) return undefined;
-        apiRef.current = {
-          /* 在指定页找可编辑文字对象并提交修改；返回对象名或 null */
-          applyTextEdit(slideN, matcher, text) {
-            const listNow = objs[String(slideN)] || [];
-            const target = listNow.find((o) => !o.locked && o.editable_text && matcher(o));
-            if (!target) return null;
-            commitText(target, text);
-            return target.name;
-          },
-          getVersion() { return version; },
-          getSha() { return sha; },
-          getPendingOps() { return ops.length; },
-        };
-        return () => { if (apiRef) apiRef.current = null; };
+      const renderAgain = () => update(async()=>waitJob(await request('/render', {})));
+      const saveNote = () => update(async () => {
+        if (!note.trim()) throw new Error('请填写批注');
+        const result = await request('/annotations', { version: snapshot.meta.version, sha256: snapshot.meta.source_sha256, slide: page, text: note, type: current ? '框选' : '文字', region: current?.position || null });
+        setNote(''); return result;
       });
-
-      /* ── 应用修订 / 渲染 / 导出（模拟） ── */
-      const doApply = () => {
-        setApplyOpen(false);
-        const nv = 'v' + String(parseInt(version.slice(1), 10) + 1).padStart(4, '0');
-        setVersion(nv); setSha('c41d88ab…' + String(Math.floor(Math.random() * 9000) + 1000));
-        setOps([]); setRedoStack([]); setQueueOpen(false);
-        onToast('已校验 SHA256 并生成新版本 ' + nv + '，重新渲染完成（演示）');
-      };
-      const fitZoom = () => {
-        const el = outerRef.current;
-        if (!el) return;
-        const z = Math.min((el.clientWidth - 80) / 1280, (el.clientHeight - 76) / 720);
-        setZoom(Math.max(0.25, Math.min(2, Math.round(z * 100) / 100)));
-      };
-
-      const zoomBtn = (z, label) => h('button', {
-        key: label, type: 'button', className: 'hp-btn sm' + (zoom === z ? ' pri' : ''),
-        onClick: () => setZoom(z), style: { minWidth: 44 },
-      }, label);
-
-      /* ── 右侧面板 ── */
-      const panelProps = selObj
-        ? h('div', null,
-            h('div', { className: 'hp-row', style: { justifyContent: 'space-between', marginBottom: 8 } },
-              h('b', null, selObj.name),
-              h('span', { className: 'hp-tid' }, '#' + selObj.shape_id)),
-            h('div', { className: 'hp-row', style: { gap: 6, marginBottom: 12 } },
-              h(Chip, null, KIND_LABEL[selObj.kind] || selObj.kind),
-              selObj.locked ? h(Badge, { tone: 'lock' }, '🔒 已锁定') : null,
-              !selObj.locked && selObj.editable_text ? h(Badge, { tone: 'ok' }, '文字可编辑') : null,
-              !selObj.locked && selObj.editable_geometry ? h(Badge, { tone: 'ok' }, '几何可编辑') : null),
-            selObj.locked ? h('div', { className: 'hp-note warn', style: { marginBottom: 12 } },
-              h('span', null, '🔒'),
-              h('span', null, '组合 / 旋转 / 继承位置不明确的对象在画布锁定；建议在 WPS 中处理后用「导入外部修订」重新载入。')) : null,
-            !selObj.locked && selObj.editable_text ? h('div', { style: { marginBottom: 12 } },
-              h('label', { className: 'hp-label' }, '文字内容（失焦提交并写入队列）'),
-              h('textarea', {
-                className: 'hp-textarea', key: 't-' + selObj.shape_id, defaultValue: selObj.text || '',
-                placeholder: '（空）', onBlur: (e) => commitText(selObj, e.target.value),
-                onKeyDown: (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.blur(); },
-              })) : null,
-            !selObj.locked && selObj.editable_geometry ? h('div', null,
-              h('label', { className: 'hp-label' }, '几何（1280×720 逻辑坐标 · 96 DPI）'),
-              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
-                ['x', 'y', 'w', 'h'].map((k) => h('div', { key: k },
-                  h('label', { className: 'hp-label', style: { marginBottom: 4 } }, { x: 'X', y: 'Y', w: '宽度', h: '高度' }[k]),
-                  h('input', {
-                    className: 'hp-input', key: k + '-' + selObj.shape_id, type: 'number', step: 1, defaultValue: selObj[k],
-                    onBlur: (e) => commitGeom(selObj, k, e.target.value),
-                    onKeyDown: (e) => { if (e.key === 'Enter') e.currentTarget.blur(); },
-                  }))))) : null)
-        : h(EmptyHint, { icon: '👆', text: '在画布中点击对象查看属性；拖拽可直接移动（自动写入待应用队列）' });
-
-      const fieldVals = fields[slide] || {};
-      const panelFields = pageLayout
-        ? h('div', null,
-            h('div', { className: 'hp-note', style: { marginBottom: 12 } },
-              h('span', null, 'ⓘ'),
-              h('span', null, '当前页版式：', h('b', null, pageLayout.name), '（', pageLayout.id, '），必填字段 ', pageLayout.required_fields.length, ' 项。')),
-            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-              pageLayout.required_fields.map((f) => h('div', { key: f },
-                h('label', { className: 'hp-label', style: { marginBottom: 4 } }, f),
-                h('input', {
-                  className: 'hp-input', value: fieldVals[f] || '',
-                  placeholder: '填写「' + f + '」',
-                  onChange: (e) => setFields({ ...fields, [slide]: { ...fieldVals, [f]: e.target.value } }),
-                })))),
-            h(Btn, { kind: 'pri', sm: true, style: { marginTop: 12 }, onClick: commitFields }, '写入待应用队列'))
-        : h(EmptyHint, { icon: '🧩', text: '当前页未关联版式' });
-
-      const panelAssets = pageLayout
-        ? h('div', null,
-            h('div', { className: 'hp-label' }, '本页配套素材（' + pageLayout.asset_ids.length + '）'),
-            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 } },
-              pageLayout.asset_ids.length ? pageLayout.asset_ids.map((aid) => {
-                const a = data.assets.find((x) => x.id === aid);
-                if (!a) return h(Chip, { key: aid }, aid);
-                return h('div', { key: aid, className: 'hp-card', style: { padding: 8, display: 'flex', alignItems: 'center', gap: 10 } },
-                  h('span', { style: { width: 34, height: 34, borderRadius: 8, background: 'var(--hp-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flex: 'none' } },
-                    h('img', { src: img(a.file), alt: a.name, style: { maxWidth: 26, maxHeight: 26 } })),
-                  h('div', { style: { flex: 1, minWidth: 0 } },
-                    h('div', { style: { fontSize: 12, fontWeight: 600 } }, a.name),
-                    h('div', { className: 'hp-tid' }, a.id)),
-                  h(Btn, { sm: true, onClick: () => onToast('已把「' + a.name + '」插入第 ' + slide + ' 页（演示）') }, '插入'));
-              }) : h('div', { className: 'hp-sub' }, '本页版式无配套素材')) ,
-            h('div', { className: 'hp-label' }, '分支素材库'),
-            h('div', { className: 'hp-row', style: { gap: 6 } },
-              data.assets.filter((a) => a.family === pageLayout.family).slice(0, 12).map((a) =>
-                h('button', {
-                  key: a.id, type: 'button', className: 'hp-btn sm', title: a.usage,
-                  onClick: () => onToast('已把「' + a.name + '」插入第 ' + slide + ' 页（演示）'),
-                }, a.name))) )
-        : h(EmptyHint, { icon: '🎨', text: '当前页未关联版式素材' });
-
-      const slideNotes = annotations.filter((a) => a.slide === slide);
-      const panelNotes = h('div', null,
-        h('div', { style: { display: 'flex', gap: 8, marginBottom: 10 } },
-          h('select', { className: 'hp-select', style: { width: 96 }, value: noteForm.type, onChange: (e) => setNoteForm({ ...noteForm, type: e.target.value }) },
-            ['框选', '箭头', '文字'].map((tt) => h('option', { key: tt }, tt))),
-          h('input', {
-            className: 'hp-input', placeholder: '批注内容…', value: noteForm.text,
-            onChange: (e) => setNoteForm({ ...noteForm, text: e.target.value }),
-            onKeyDown: (e) => { if (e.key === 'Enter' && noteForm.text.trim()) addNote(); },
-          }),
-          h(Btn, { kind: 'pri', sm: true, disabled: !noteForm.text.trim(), onClick: () => addNote() }, '添加')),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-          slideNotes.length ? slideNotes.map((a) => h('div', { key: a.id, className: 'hp-card', style: { padding: '8px 10px' } },
-            h('div', { className: 'hp-row', style: { gap: 6, marginBottom: 4 } },
-              h(Chip, null, a.type),
-              h('span', { className: 'hp-tid' }, a.version + ' · ' + a.sha),
-              h('span', { style: { flex: 1 } }),
-              h(Btn, { kind: 'ghost', sm: true, onClick: () => setAnnotations(annotations.filter((x) => x.id !== a.id)) }, '删除')),
-            h('div', { style: { fontSize: 13 } }, a.text)))
-            : h('div', { className: 'hp-sub' }, '本页暂无批注；批注保存后显示对应版本与 SHA256，供对话侧生成修改计划。')));
-      const addNote = () => {
-        const t = noteForm.text.trim();
-        if (!t) return;
-        setAnnotations([...annotations, { id: 'an-' + Date.now(), slide, type: noteForm.type, text: t, version, sha }]);
-        setNoteForm({ ...noteForm, text: '' });
-        onToast('批注已保存（' + version + '）');
-      };
-
-      /* ── 渲染 ── */
-      return h('div', { className: 'hp-cv' },
-        /* 顶部工具栏 */
-        h('div', { className: 'hp-cv-toolbar' },
-          h(Btn, { sm: true, onClick: () => onToast('画布状态已保存（演示）') }, '💾 保存'),
-          h(Btn, { sm: true, disabled: !ops.length, onClick: undo, title: '撤销上一操作' }, '↩ 撤销'),
-          h(Btn, { sm: true, disabled: !redoStack.length, onClick: redo, title: '重做' }, '↪ 重做'),
-          h('span', { className: 'hp-cv-sep' }),
-          h(Btn, { sm: true, onClick: () => onToast('渲染任务已创建：WPS 12.0.19025（演示）') }, '🖥 渲染'),
-          h(Btn, { sm: true, onClick: () => setCompareOpen(true) }, '⇄ 对比'),
-          h('span', { className: 'hp-cv-sep' }),
-          h(Btn, { kind: 'pri', sm: true, disabled: !ops.length, onClick: () => setApplyOpen(true) },
-            '✓ 应用修订' + (ops.length ? '（' + ops.length + '）' : '')),
-          h(Btn, { sm: true, onClick: () => onToast('已导出 output/deck-' + version + '.pptx（演示）') }, '⬇ 导出'),
-          h('span', { style: { flex: 1 } }),
-          h('span', { className: 'hp-tid', style: { marginRight: 4 } }, '缩放'),
-          zoomBtn(0.5, '50%'), zoomBtn(0.75, '75%'), zoomBtn(1, '100%'), zoomBtn(1.5, '150%'), zoomBtn(2, '200%'),
-          h(Btn, { sm: true, onClick: fitZoom }, '适应窗口')),
-
-        /* 中部三栏 */
-        h('div', { className: 'hp-cv-body' },
-          /* 左：页面缩略图 */
-          h('div', { className: 'hp-cv-left' },
-            SLIDE_PAGES.map((p) => h('button', {
-              key: p.n, type: 'button', className: 'hp-cv-thumb' + (slide === p.n ? ' on' : ''),
-              onClick: () => { setSlide(p.n); setSel(null); },
-            },
-              h('img', { src: img(p.preview), alt: '第 ' + p.n + ' 页', loading: 'lazy' }),
-              h('div', { style: { padding: '5px 8px', fontSize: 11 } },
-                h('div', { className: 'hp-row', style: { gap: 4, justifyContent: 'space-between' } },
-                  h('b', null, 'P' + p.n),
-                  h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: p.status === 'rendered' ? 'var(--hp-accent)' : 'var(--hp-amber)' }, title: p.status === 'rendered' ? '已渲染' : '待视觉检查' })),
-                h('div', { className: 'hp-tid', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.label)))),
-            h('div', { className: 'hp-note', style: { padding: 8, fontSize: 11 } }, '演示项目共 12 页，此处加载 4 页样例')),
-
-          /* 中：舞台 */
-          h('div', { className: 'hp-cv-outer', ref: outerRef, onClick: (e) => { if (e.target === e.currentTarget) setSel(null); } },
-            h('div', { style: { width: 1280 * zoom, height: 720 * zoom, flex: 'none', position: 'relative' } },
-              h('div', { className: 'hp-stage', style: { transform: 'scale(' + zoom + ')' } },
-                h('img', { className: 'bg', src: img(page.preview), alt: '第 ' + slide + ' 页渲染结果', draggable: false }),
-                overlay.map((o) => h('button', {
-                  key: o.shape_id, type: 'button',
-                  className: 'hp-obj' + (sel === o.shape_id ? ' on' : '') + (o.locked ? ' lock' : ''),
-                  style: { left: o.x, top: o.y, width: o.w, height: o.h },
-                  title: o.name + (o.locked ? '（已锁定）' : ''),
-                  'aria-label': o.name,
-                  onPointerDown: (e) => onObjPointerDown(e, o),
-                  onPointerMove: onObjPointerMove,
-                  onPointerUp: onObjPointerUp,
-                  onClick: (e) => { e.stopPropagation(); setSel(o.shape_id); },
-                },
-                  h('span', { className: 'tag' }, (o.locked ? '🔒 ' : '') + o.name))))),
-            queueOpen ? h('div', { className: 'hp-queue' },
-              h('div', { className: 'hp-row', style: { justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--dsw-alias-border-l1,#e2e8f0)' } },
-                h('b', { style: { fontSize: 13 } }, '待应用操作（' + ops.length + '）'),
-                h('div', { className: 'hp-row', style: { gap: 6 } },
-                  h(Btn, { kind: 'ghost', sm: true, disabled: !ops.length, onClick: () => { ops.slice().reverse().forEach((op) => applyOpVals(op, 'prev')); setOps([]); } }, '全部撤销'),
-                  h(Btn, { kind: 'ghost', sm: true, onClick: () => setQueueOpen(false) }, '收起'))),
-              ops.length ? h('div', { style: { padding: '6px 8px' } },
-                ops.map((op) => h('div', { key: op.id, className: 'hp-row', style: { justifyContent: 'space-between', padding: '6px 8px', borderRadius: 8 } },
-                  h('span', { style: { fontSize: 12 } },
-                    h('span', { className: 'hp-tid', style: { marginRight: 6 } }, op.id),
-                    '第 ' + op.slide + ' 页 · ' + op.label),
-                  h(Btn, { kind: 'ghost', sm: true, onClick: () => removeOp(op.id) }, '撤销'))))
-                : h('div', { className: 'hp-empty', style: { padding: 20 } }, '队列为空；画布上的修改会先进入这里，点击「应用修订」才生成新版本')) : null),
-
-          /* 右：属性/字段/素材/批注 */
-          h('div', { className: 'hp-cv-right' },
-            h('div', { className: 'hp-cv-tabs' },
-              [['props', '属性'], ['fields', '字段'], ['assets', '素材'], ['notes', '批注' + (slideNotes.length ? ' ' + slideNotes.length : '')]].map(([k, label]) =>
-                h('button', { key: k, type: 'button', className: 'hp-cv-tab' + (tab === k ? ' on' : ''), onClick: () => setTab(k) }, label))),
-            h('div', { className: 'hp-cv-panel' },
-              tab === 'props' ? panelProps : tab === 'fields' ? panelFields : tab === 'assets' ? panelAssets : panelNotes))),
-
-        /* 底部状态栏 */
-        h('div', { className: 'hp-statusbar' },
-          h('span', null, h('b', null, project.title)),
-          h('span', { className: 'hp-tid' }, '版本 ' + version),
-          h('span', null, '引擎 WPS 12.0.19025'),
-          h('span', { className: 'hp-mono' }, 'SHA256 ' + sha),
-          h('span', null, '画布 1280×720 @96DPI'),
-          h('span', { style: { flex: 1 } }),
-          h('button', {
-            type: 'button', className: 'hp-btn sm' + (ops.length ? ' pri' : ''),
-            onClick: () => setQueueOpen(!queueOpen),
-          }, '未应用操作 ' + ops.length)),
-
-        /* 应用修订确认 */
-        applyOpen ? h(Modal, {
-          title: '应用修订并生成新版本',
-          sub: '将校验当前文件 SHA256、停止并发写入、生成新 PPTX 并重新渲染',
-          onClose: () => setApplyOpen(false),
-          footer: [
-            h(Btn, { key: 'c', onClick: () => setApplyOpen(false) }, '取消'),
-            h(Btn, { key: 'ok', kind: 'pri', onClick: doApply }, '确认应用（生成 ' + ('v' + String(parseInt(version.slice(1), 10) + 1).padStart(4, '0')) + '）'),
-          ],
-        },
-          h('div', { className: 'hp-note warn', style: { marginBottom: 12 } },
-            h('span', null, '⚠'),
-            h('span', null, '本次将应用 ', h('b', null, ops.length), ' 项待应用操作，影响当前项目 ', h('b', null, SLIDE_PAGES.length), ' 个已加载页面；旧版本保留可回滚。')),
-          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflow: 'auto' } },
-            ops.map((op) => h('div', { key: op.id, className: 'hp-row', style: { gap: 8, fontSize: 12, padding: '6px 8px', background: 'var(--dsw-alias-bg-layer-2,#f8fafc)', borderRadius: 8 } },
-              h('span', { className: 'hp-tid' }, op.id),
-              h('span', null, '第 ' + op.slide + ' 页 · ' + op.label))))) : null,
-
-        /* 版本对比 */
-        compareOpen ? h(Modal, {
-          title: '版本对比', sub: 'v0002（上一版本） vs ' + version + '（当前）· 第 ' + slide + ' 页',
-          onClose: () => setCompareOpen(false), width: 980,
-        },
-          h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } },
-            h('div', null,
-              h('div', { className: 'hp-row', style: { justifyContent: 'space-between', marginBottom: 8 } },
-                h('b', null, 'v0002'), h(Badge, { tone: 'lock' }, '历史版本')),
-              h('div', { style: { borderRadius: 10, overflow: 'hidden', border: '1px solid var(--dsw-alias-border-l1,#e2e8f0)' } },
-                h('img', { src: img(page.preview), alt: 'v0002 渲染', style: { width: '100%', display: 'block', filter: 'grayscale(.35) opacity(.85)' } })),
-              h('div', { className: 'hp-tid', style: { marginTop: 6 } }, 'SHA256 77be01cd…41aa')),
-            h('div', null,
-              h('div', { className: 'hp-row', style: { justifyContent: 'space-between', marginBottom: 8 } },
-                h('b', null, version + '（当前）'), h(Badge, { tone: 'ok' }, ops.length ? '含 ' + ops.length + ' 项未应用修改' : '与画布一致')),
-              h('div', { style: { position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--hp-accent-soft-border)' } },
-                h('img', { src: img(page.preview), alt: '当前渲染', style: { width: '100%', display: 'block' } }),
-                overlay.map((o) => h('span', {
-                  key: o.shape_id,
-                  style: {
-                    position: 'absolute',
-                    left: (o.x / 1280 * 100) + '%', top: (o.y / 720 * 100) + '%',
-                    width: (o.w / 1280 * 100) + '%', height: (o.h / 720 * 100) + '%',
-                    border: '1.5px solid ' + (o.locked ? 'rgba(100,116,139,.7)' : 'var(--hp-accent)'),
-                    borderRadius: 2, pointerEvents: 'none',
-                  },
-                }))),
-              h('div', { className: 'hp-tid', style: { marginTop: 6 } }, 'SHA256 ' + sha + ' · 对象边界实时叠加'))),
-          h('div', { className: 'hp-note', style: { marginTop: 14 } },
-            h('span', null, 'ⓘ'),
-            h('span', null, '演示：差异视图标记当前对象边界；完整版本对比在阶段 C（渲染与验收）提供逐页像素差异。'))) : null);
+      const compare = () => update(async () => { const r = await request('/compare', { left: compareTo, right: snapshot.meta.version }); setComparison(r); return r; });
+      if (!snapshot) return h('div', { className: 'hp-card' }, error || '正在加载当前真实版本…', h(Btn, { onClick: () => load(page) }, '重试'));
+      const size = shapes?.slide_size || { width: 1280, height: 720 };
+      const png = snapshot.renders?.[page - 1];
+      const labelOf = (v) => 'v' + String(Number(v.file.match(/revision-(\d+)/)?.[1])).padStart(4, '0');
+      return h('div', { className: 'hp-cv-real' },
+        h('div', { className: 'hp-row', style: { gap: 6, flexWrap: 'wrap', marginBottom: 10 } },
+          h('b', null, '画布 · ' + snapshot.meta.version),
+          h(Btn, { sm: true, disabled: busy || !queue.length, onClick: apply }, '保存 / 应用修订'),
+          h(Btn, { sm: true, disabled: !queue.length, onClick: () => { const last = queue[queue.length - 1]; setQueue(queue.slice(0, -1)); setRedo([...redo, last]); } }, '撤销'),
+          h(Btn, { sm: true, disabled: !redo.length, onClick: () => { setQueue([...queue, redo[redo.length - 1]]); setRedo(redo.slice(0, -1)); } }, '重做'),
+          h(Btn, { sm: true, disabled: busy, onClick: renderAgain }, '重新渲染'),
+          h(Btn, { sm: true, disabled: busy, onClick: () => update(() => request('/export', { note: '画布导出' })) }, '导出 PPTX'),
+          h('a', { href: API + '/api/projects/' + encodeURIComponent(projectId) + '/download?version=' + snapshot.meta.version }, '下载当前版本'),
+          h('label', null, '缩放 ', h('input', { type: 'range', min: 0.5, max: 2, step: 0.1, value: zoom, onChange: (e) => setZoom(Number(e.target.value)) }))),
+        error ? h('div', { role: 'alert', className: 'hp-note' }, error) : null,
+        h('div', { className: 'hp-row', style: { gap: 5, flexWrap: 'wrap' } },
+          (snapshot.renders || []).map((_, i) => h(Btn, { key: i, sm: true, onClick: () => { setSelected(''); load(i + 1); } }, 'P' + (i + 1))),
+          h('span', { className: 'hp-mono' }, 'SHA256 ' + snapshot.meta.source_sha256)),
+        h('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginTop: 10 } },
+          h('div', { style: { overflow: 'auto' } },
+            png ? h('div', { style: { position: 'relative', width: (zoom * 100) + '%' } },
+              h('img', { src: image(snapshot.meta.version, png), alt: '第 ' + page + ' 页真实预览', style: { width: '100%', display: 'block' } }),
+              (shapes?.shapes || []).filter((s) => s.position && !s.hidden && !s.occluded_by_full_page_picture).map((s) => {
+                const g = geometry(s);
+                return h('div', { key: s.shape_id, role: 'button', tabIndex: 0, title: s.name,
+                  style: { position: 'absolute', left: (g.x / size.width * 100) + '%', top: (g.y / size.height * 100) + '%', width: (g.width / size.width * 100) + '%', height: (g.height / size.height * 100) + '%', border: selected === s.shape_id ? '2px solid var(--hp-accent)' : '1px solid transparent', touchAction: 'none' },
+                  onClick: () => setSelected(s.shape_id),
+                  onPointerDown: (e) => { setSelected(s.shape_id); if (!s.editable_geometry) return; e.preventDefault(); const rect = e.currentTarget.parentElement.getBoundingClientRect(); drag.current = { shape: s, x: e.clientX, y: e.clientY, scale: size.width / rect.width, position: g }; e.currentTarget.setPointerCapture?.(e.pointerId); },
+                  onPointerUp: (e) => { const d = drag.current; drag.current = null; if (!d || d.shape.shape_id !== s.shape_id) return; const dx = (e.clientX - d.x) * d.scale, dy = (e.clientY - d.y) * d.scale; if (Math.abs(dx) + Math.abs(dy) > 1) append({ op: 'geometry', slide: page, shape_id: s.shape_id, x: d.position.x + dx, y: d.position.y + dy }); },
+                });
+              })) : h('div', { className: 'hp-note' }, '当前版本缺少预览，可重试真实渲染'),
+            comparison ? h('div', { className: 'hp-card', style: { marginTop: 12 } },
+              h('b', null, comparison.left.version + ' → ' + comparison.right.version),
+              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr' } }, [comparison.left, comparison.right].map((v) => h('div', { key: v.version }, h('div', null, v.version), v.report?.render_pngs?.[page - 1] ? h('img', { src: image(v.version, v.report.render_pngs[page - 1]), style: { width: '100%' } }) : '该页无预览'))),
+              comparison.differences.filter((d) => d.slide === page).map((d, i) => h('div', { key: i }, '#' + d.shape_id + ': ' + (d.before?.text || '[新增对象]') + ' → ' + (d.after?.text || '[已删除或几何变更]')))) : null),
+          h('div', { className: 'hp-card', style: { padding: 12 } },
+            h('b', null, '对象属性与修改队列'),
+            h('select', { className: 'hp-input', value: selected, onChange: (e) => setSelected(e.target.value) }, h('option', { value: '' }, '选择真实对象'), (shapes?.shapes || []).map((s) => h('option', { key: s.shape_id, value: s.shape_id }, '#' + s.shape_id + ' ' + s.name))),
+            current?.editable_text ? h('textarea', { key: snapshot.meta.version + ':' + page + ':' + selected, className: 'hp-textarea', defaultValue: current.text, onBlur: (e) => { if (e.target.value !== current.text) append({ op: 'set-text', slide: page, shape_id: current.shape_id, text: e.target.value }); } }) : null,
+            current?.editable_geometry ? ['x', 'y', 'width', 'height', 'rotation'].map((key) => field(key, key === 'rotation' ? current.rotation || 0 : geometry(current)[key], (value) => append({ op: 'geometry', slide: page, shape_id: selected, [key]: value }), key)) : null,
+            current?.kind === 'table' ? current.cells.map((row, r) => h('div', { key: r }, row.map((cell, c) => h('input', { key: snapshot.meta.version + ':' + r + ':' + c, defaultValue: cell, title: '行' + r + '列' + c, className: 'hp-input', onBlur: (e) => { if (e.target.value !== cell) append({ op: 'table-cell', slide: page, shape_id: selected, row: r, column: c, text: e.target.value }); } })))) : null,
+            current ? h(Btn, { sm: true, onClick: () => append({ op: 'delete-shape', slide: page, shape_id: selected }) }, '删除对象') : null,
+            h('div', null, '队列 ' + queue.length + ' 项'),
+            queue.map((op, i) => h('div', { key: i, className: 'hp-row' }, 'P' + op.slide + ' ' + op.op + ' #' + (op.shape_id || '新增'), h(Btn, { sm: true, onClick: () => setQueue(queue.filter((_, j) => i !== j)) }, '移除'))),
+            h(Btn, { sm: true, onClick: () => append({ op: 'insert-text', slide: page, text: '新增文本', x: 80, y: 80, width: 240, height: 120 }) }, '插入文本'),
+            h('select', { className: 'hp-input', value: asset, onChange: (e) => setAsset(e.target.value) }, h('option', { value: '' }, '选择素材'), (data.assets || []).map((a) => h('option', { key: a.id, value: a.id }, a.name))),
+            h(Btn, { sm: true, disabled: !asset, onClick: () => append({ op: 'insert-image', slide: page, asset_id: asset, x: 80, y: 80, width: 200, height: 160 }) }, '插入素材'),
+            h('textarea', { className: 'hp-textarea', value: note, onChange: (e) => setNote(e.target.value), placeholder: current ? '对选中对象添加框选批注' : '添加本页批注' }),
+            h(Btn, { sm: true, disabled: busy || !note.trim(), onClick: saveNote }, '保存批注'),
+            notes.filter((a) => a.slide === page).map((a) => h('div', { key: a.id }, a.version + ' · ' + a.text + ' · ' + a.status, h(Btn, { sm: true, onClick: () => update(() => request('/annotations/' + a.id, null, 'DELETE')) }, '删除'))),
+            h(Btn, { sm: true, disabled: busy || !notes.some((a) => a.version === snapshot.meta.version && a.status === 'pending'), onClick: () => update(() => request('/annotations/submit', { ids: notes.filter((a) => a.version === snapshot.meta.version && a.status === 'pending').map((a) => a.id), model_id: modelId })) }, '提交当前批注到真实修订'),
+            h('select', { className: 'hp-input', value: compareTo, onChange: (e) => setCompareTo(e.target.value) }, h('option', { value: '' }, '选择历史版本'), versions.filter((v) => labelOf(v) !== snapshot.meta.version).map((v) => h('option', { key: v.file, value: labelOf(v) }, labelOf(v)))),
+            h(Btn, { sm: true, disabled: busy || !compareTo, onClick: compare }, '比较版本'),
+            h(Btn, { sm: true, disabled: busy || !compareTo, onClick: () => update(() => request('/rollback', { label: compareTo, ...base() })) }, '回滚为新版本'),
+            h(Btn, { sm: true, disabled: busy, onClick: () => update(() => request('/samples/confirm', { version: snapshot.meta.version, sha256: snapshot.meta.source_sha256, confirmed_by: '用户', note: '查看当前真实样张后确认' })) }, '确认当前样张'),
+            h(Btn, { sm: true, disabled: busy, onClick: () => update(async () => { onToast('正在正式定稿，等待真实任务完成'); return waitJob(await request('/generate', { phase: 'final' })); }) }, '正式定稿'))));
     }
 
     /* ════════ 根组件：左侧导航 + 三视图常挂载切换 ════════ */
@@ -2742,7 +2356,7 @@ window.__ModuleLoader__.load({
     const VIEW_TITLES = { home: '归档项目', templates: '模板库', studio: '对话制作' };
 
     /* 「归档项目」的判定：服务端已归档，或已完成（导出即闭环）——二者都算完成归档 */
-    const isArchivedCard = (p) => !!p.archived || p.status === 'archived' || p.status === 'done';
+    const isArchivedCard = (p) => !!p.archived || p.status === 'archived';
 
 
     /* ── 历史对话（侧栏二级目录）状态：置顶 / 删除为前端持久化覆盖层 ── */
@@ -2859,13 +2473,10 @@ window.__ModuleLoader__.load({
             if (onReloadProjects) onReloadProjects(); // 新项目由 /api/projects 列表自动出现，不重复登记 localConvs
             return;
           } catch (e) {
-            onToast('新建项目失败：' + (e && e.message ? e.message : e) + '，本次改为本地对话（降级演示）');
+            onToast('新建项目失败：' + (e && e.message ? e.message : e) + '，可重试'); return;
           }
         }
-        const id = 'local-' + nonce;
-        setLocalConvs((prev) => [{ id, title: '新对话', updated: nowLabel(), stage: 'idle', msgs: [], ctx: null, archived: false }, ...prev]);
-        setActiveConv({ nonce, id, title: '新对话', fresh: true });
-        goStudio();
+        onToast('后端服务未连接，无法创建项目');
       }, [backend, onToast, onReloadProjects]);
       const onConvSync = useCallback((id, snap) => {
         setLocalConvs((prev) => {
@@ -2902,13 +2513,16 @@ window.__ModuleLoader__.load({
         setLocalConvs((prev) => prev.map((x) => (x.id === c.id ? { ...x, archived: !x.archived } : x)));
         onToast(c.archived ? '已重新打开「' + c.title + '」' : '已归档「' + c.title + '」');
       }, [backend, onToast, onReloadProjects]);
-      const deleteConversation = useCallback((c) => {
+      const deleteConversation = useCallback(async (c) => {
+        if (c.real) {
+          try { const response = await fetch(API + '/api/projects/' + encodeURIComponent(c.id), { method: 'DELETE', credentials: 'same-origin' }); const j = await response.json(); if (!response.ok || !j.ok) throw new Error(j.message || '删除失败'); }
+          catch (e) { onToast('删除失败：' + e.message); return; }
+        }
         setConvMenuId(null); setConfirmDelId(null);
         setLocalConvs((prev) => prev.filter((x) => x.id !== c.id));
-        patchConvOverlay(c.id, { hidden: true });
         if (activeConv && activeConv.id === c.id) setActiveConv(null);
-        onToast('已删除对话「' + c.title + '」' + (c.real ? '（本地列表移除；服务器项目目录删除待后端接口）' : ''));
-      }, [patchConvOverlay, onToast, activeConv]);
+        onToast('已删除项目及关联导出「' + c.title + '」'); onReloadProjects();
+      }, [onToast, activeConv, onReloadProjects]);
       /* 进入/离开对话制作时自动开合二级目录（点一级项仍可手动再折叠） */
       useEffect(() => { setNavSubOpen(view === 'studio'); }, [view]);
 
@@ -3005,10 +2619,11 @@ window.__ModuleLoader__.load({
                   h('span', null, '真实后端已连接 · 索引 ' + String(backend.revision || '').slice(0, 8)))
               : h('div', { className: 'hp-note warn', style: { padding: 8, fontSize: 11 } },
                   h('span', null, '🧪'),
-                  h('span', null, backend ? '后端未连接 · 演示数据模式，不读写真实 PPT 文件' : '正在连接后端…')))),
+                  h('span', null, backend ? '后端未连接，业务操作暂不可用' : '正在连接后端…')))),
 
         /* ── 主区 ── */
         h('main', { className: 'hp-main' },
+          data && view === 'home' ? h(React.Fragment, null, h(RenderSettings, { onToast }), h(OrphanExports, { onToast })) : null,
           !data && !loadErr ? h('div', { className: 'hp-empty', style: { paddingTop: 120 } },
             h('div', { style: { fontSize: 30, marginBottom: 10 } }, '🎬'),
             h('div', null, '正在加载模板索引…')) : null,
@@ -3018,7 +2633,7 @@ window.__ModuleLoader__.load({
             h(Btn, { kind: 'pri', onClick: () => { setLoadErr(null); setReloadTick((t) => t + 1); } }, '重试')) : null,
           data && projects ? h('div', { style: { display: view === 'home' ? 'block' : 'none', height: '100%', overflow: 'hidden' } },
             h('div', { style: { height: '100%', display: 'flex', flexDirection: 'column' } },
-              h(ProjectHome, { data, projects: archivedProjects, onNav, onToast, backend, onReloadProjects, onNewConversation }))) : null,
+              h(ProjectHome, { data, projects: archivedProjects, onNav, onToast, backend, onReloadProjects, onNewConversation, onOpenProject: openConversation, onDeleteProject: deleteConversation }))) : null,
           data ? h('div', { style: { display: view === 'studio' ? 'block' : 'none', height: '100%', overflow: 'hidden' } },
             h(ConversationStudio, {
               data, onNav, onToast, onProjectArchived, onReloadProjects,
@@ -3031,7 +2646,7 @@ window.__ModuleLoader__.load({
             })) : null,
           data ? h('div', { style: { display: view === 'templates' ? 'block' : 'none', height: '100%', overflow: 'hidden' } },
             h('div', { style: { height: '100%', display: 'flex', flexDirection: 'column' } },
-              h(TemplateLibrary, { data, onNav, onToast }))) : null),
+              h(TemplateLibrary, { data, onNav, onToast, targetProjectId: activeConv?.id, allProjects: projects || [], onReloadIndex: () => setReloadTick((t) => t + 1) }))) : null),
 
         h(Toast, { toast, onDone: () => setToast(null) }));
     }

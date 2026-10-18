@@ -5,6 +5,7 @@
  */
 
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { runCmd } from './util.js';
 
@@ -12,7 +13,7 @@ const TIMEOUT = 180000;
 
 /** studio.py 脚本绝对路径 */
 export function studioScript() {
-  return path.join(config().skillDir, 'scripts', 'studio.py');
+  return path.join(path.dirname(fileURLToPath(import.meta.url)), 'scripts', 'studio.py');
 }
 
 /** 错误消息 → 方案 §13 错误码 */

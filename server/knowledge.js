@@ -13,6 +13,10 @@ import { projectDir, loadProject } from './projects.js';
 import { readJson, writeJson, nowIso, apiError } from './util.js';
 import { studio as studioRun, approveTemplate } from './studio.js';
 import { invalidateIndex } from './index-builder.js';
+import { randomUUID } from 'node:crypto';
+import { listMaterials, listContentMaterials } from './materials.js';
+import { stableHash } from './util.js';
+import { withProjectLock } from './workflow.js';
 
 const TPL_ROOT = () => path.join(config().dataDir, 'library', 'templates');
 const LIB = () => path.join(config().dataDir, 'library');
@@ -94,7 +98,7 @@ export async function learnFromProject(projectId) {
     if (/already exists/i.test(String(e.message))) {
       // 幂等：按 sha 前缀找回目录
       const sha = (custom.template_sha256 || '').slice(0, 10);
-      const hit = (await listTemplateFolders()).find((f) => f.source_sha256 && f.source_sha256.startsWith(sha) && f.name === name);
+      const hit = (await listTemplateFolders()).find((f) => f.source_sha256 && f.source_sha256.startsWith(sha));
       if (hit) folder = path.join(TPL_ROOT(), hit.id);
       else throw e;
     } else throw e;
@@ -156,51 +160,93 @@ export async function confirmTemplateKnowledge(folderId, candidateId, confirmedB
 /** 已入库知识（模板级） */
 export async function listKnowledge() {
   const dir = path.join(LIB(), 'knowledge');
-  if (!fs.existsSync(dir)) return [];
   const out = [];
-  for (const f of (await fsp.readdir(dir)).filter((x) => x.endsWith('.json'))) {
+  for (const f of (fs.existsSync(dir) ? await fsp.readdir(dir) : []).filter((x) => x.endsWith('.json'))) {
     const j = await readJson(path.join(dir, f), null);
-    if (j) out.push({ id: j.id, text: j.text, scope: j.scope, slide: j.slide, source_sha256: j.source_sha256, confirmed_by: j.confirmation && j.confirmation.confirmed_by, at: j.confirmation && j.confirmation.at });
+    if (j) out.push({ ...j, type:'template-example', confirmed_by:j.confirmation?.confirmed_by,at:j.confirmation?.at });
   }
-  return out;
+  const materials=[];
+  for(const f of await readJson(path.join(LIB(),'material-knowledge.json'),[])) {
+    let detached=true;
+    try { const {meta}=await loadProject(f.project_id); detached=(meta.epoch||0)!==(f.epoch||0) || !!(f.source_material_id && !(await listMaterials(f.project_id)).some((m)=>m.id===f.source_material_id)); } catch {}
+    materials.push({...f,type:'material-fact',source_detached:detached});
+  }
+  return [...out,...materials];
 }
 
 /* ── 材料级事实（非 PPTX 源，自管理） ── */
 
-export async function addMaterialFact(projectId, { text, source_name, locator }) {
+export async function addMaterialFact(projectId, { text, source_name, locator, quote, source_material_id }) {
+  return withProjectLock(projectId,async()=>{
   if (!text || !String(text).trim()) throw apiError('REQUIRED_FIELD_MISSING', '事实内容不能为空');
   const list = await readJson(path.join(projectDir(projectId), 'knowledge-facts.json'), []);
+  const material = (await listMaterials(projectId)).find((m)=>source_material_id ? m.id===source_material_id : m.name===source_name);
+  if(source_material_id && !material) throw apiError('SOURCE_NOT_FOUND','事实来源材料不存在');
+  const { meta } = await loadProject(projectId);
   const entry = {
-    id: 'fact-' + Date.now().toString(36),
-    text: String(text).trim().slice(0, 500),
+    id: 'fact-' + randomUUID(),
+    text: String(text).trim(),
+    source_sha256: material?.sha256 || stableHash({text,source_name,locator}),
+    source_material_id: material?.id || null,
+    project_id: projectId, epoch: meta.epoch || 0,
     source_name: String(source_name || '对话补充').slice(0, 80),
     locator: String(locator || '').slice(0, 80),
+    ...(quote ? {quote} : {}),
     status: 'candidate',
     added_at: nowIso(),
   };
   list.push(entry);
   await writeJson(path.join(projectDir(projectId), 'knowledge-facts.json'), list);
   return entry;
+  });
 }
 
 export async function listMaterialFacts(projectId) {
   return readJson(path.join(projectDir(projectId), 'knowledge-facts.json'), []);
 }
+export async function analyzeMaterialFacts(projectId,modelId) {
+  const { resolveModel, chatJson }=await import('./llm.js');
+  const { sourceEvidence }=await import('./material-analysis.js');
+  const model=await resolveModel(modelId || (await loadProject(projectId)).meta.dialogue_model);
+  if(!model.online) throw apiError('LLM_UNAVAILABLE','材料事实提取需要可用模型');
+  const mats=await listContentMaterials(projectId),evidence=[];
+  for(const [index,source] of mats.entries()) {
+    if(!source.text_extracted || source.extraction_status==='partial') throw apiError('MATERIAL_ANALYSIS_FAILED','材料「'+source.name+'」尚未完整提取');
+    const raw=await fsp.readFile(path.join(projectDir(projectId),source.file+'.extract.txt'),'utf8');
+    for(const ref of sourceEvidence(raw)) evidence.push({...ref,id:'M'+(index+1)+':'+ref.id,source_name:source.name,source_material_id:source.id});
+  }
+  const input=JSON.stringify(evidence);
+  if(input.length>150000) throw apiError('MATERIAL_CONTEXT_TOO_LARGE','材料事实提取超过上下文预算，请拆分项目材料；全部原文已保存');
+  const refs=new Map(evidence.map((ref)=>[ref.id,ref]));
+  const parsed=await chatJson({model,timeoutMs:600000,system:'根据材料原文证据表提取最关键的事实候选，保留数字、单位，不引用模板示例。只输出 JSON {"facts":[{"text":"事实","evidence_id":"证据表中的id"}]}。最多12条，不虚构，无事实则空数组。只选择表中存在的编号，不要抄写或改写原文引用，程序会自动保存来源。',messages:[{role:'user',content:input}]},(value)=>{
+    if(!Array.isArray(value.facts)) return 'facts 必须为数组';
+    if(value.facts.some((fact)=>!fact || typeof fact.text!=='string' || !fact.text.trim() || !refs.has(fact.evidence_id))) return '每个事实必须有非空text，evidence_id只能选原文证据表中存在的编号';
+  });
+  const valid=parsed.facts.map((fact)=>{const ref=refs.get(fact.evidence_id);return {text:fact.text,source_name:ref.source_name,source_material_id:ref.source_material_id,locator:ref.locator,quote:ref.quote};});
+  const existing=await listMaterialFacts(projectId);
+  for(const fact of valid) if(!existing.some((f)=>f.text===fact.text && f.source_name===fact.source_name)) {const entry=await addMaterialFact(projectId,fact);existing.push(entry);}
+  return existing;
+}
 
 export async function confirmMaterialFact(projectId, factId, confirmedBy) {
+  return withProjectLock(projectId,async()=>{
   const list = await readJson(path.join(projectDir(projectId), 'knowledge-facts.json'), []);
   const fact = list.find((f) => f.id === factId);
   if (!fact) throw apiError('SOURCE_NOT_FOUND', '事实候选不存在：' + factId);
-  if (fact.status === 'confirmed') throw apiError('INVALID_OPERATION', '该事实已确认');
+  if (fact.source_material_id && !(await listMaterials(projectId)).some((m)=>m.id===fact.source_material_id && m.sha256===fact.source_sha256)) throw apiError('SOURCE_NOT_FOUND','事实来源材料已移除，请重新登记来源');
+  if (fact.status === 'confirmed') return fact;
   fact.status = 'confirmed';
   fact.confirmed_by = confirmedBy || '用户';
   fact.confirmed_at = nowIso();
   await writeJson(path.join(projectDir(projectId), 'knowledge-facts.json'), list);
   const lib = path.join(LIB(), 'material-knowledge.json');
+  await withProjectLock('knowledge:global',async()=>{
   const store = await readJson(lib, []);
   if (!store.some((x) => x.project_id === projectId && x.id === fact.id)) {
     store.push({ ...fact, project_id: projectId });
     await writeJson(lib, store);
   }
+  });
   return fact;
+  });
 }

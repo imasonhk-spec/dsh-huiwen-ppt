@@ -231,7 +231,7 @@ let INDEX_CACHE = null;
 
 /** 构建/重建资源索引（styles/layouts/assets/canvas/projects 摘要） */
 export async function buildIndex(force = false) {
-  if (INDEX_CACHE && !force) return INDEX_CACHE;
+  if (INDEX_CACHE && !force) return { ...INDEX_CACHE, projects: await listProjectCards() };
   const cats = {};
   for (const b of BRANCHES) {
     cats[b.family] = await readJson(path.join(branchDir(b), 'catalog.json'), {});
@@ -240,9 +240,33 @@ export async function buildIndex(force = false) {
     ...(await layoutsFromBranch(BRANCHES[0])),
     ...(await layoutsFromBranch(BRANCHES[1])),
   ];
+  const approved = [];
+  const troot = path.join(libraryDir(), 'templates');
+  for (const id of await fsp.readdir(troot)) {
+    const manifest = await readJson(path.join(troot,id,'manifest.json'),null);
+    if (manifest?.status !== 'approved') continue;
+    const source = path.join(troot,id,'reference.pptx');
+    if (!fs.existsSync(source) || await sha256File(source)!==manifest.source_sha256) continue;
+    const inspection = await readJson(path.join(troot,id,'inspection.json'),null);
+    if (inspection) approved.push({id,manifest,inspection});
+  }
+  for (const lay of layouts) {
+    const template = approved.find((t)=>t.manifest.name === BRANCHES.find((b)=>b.family===lay.family)?.name);
+    lay.template_id = template?.id;
+    lay.source_template_sha = template?.manifest.source_sha256;
+    if (lay.pack !== 'reference_pack' && !template?.inspection.slides?.[lay.template_slide-1]) lay.approval = 'invalid';
+  }
+  const extras = approved.filter((t)=>!BRANCHES.some((b)=>b.name===t.manifest.name));
+  for (const t of extras) for (const slide of t.inspection.slides) {
+    if ((slide.elements || []).filter((e)=>e.editable_text && e.kind==='sp').length<2) continue;
+    layouts.push({ id:t.id+'-slide-'+slide.number, name:t.manifest.name+' · 第'+slide.number+'页',family:t.id,
+      template_id:t.id,source_template_sha:t.manifest.source_sha256,template_slide:slide.number,relation:'内容页',
+      tags:['自定义'],pack:'custom',approval:'approved',editability:['text','shape'],preview:null,required_fields:['title','key_points'],asset_ids:[],composition:'已批准原生模板版式',source_pages:[slide.number] });
+  }
   const assets = await assetsFromBranch(BRANCHES[0]);
   const canvas = await canvasFromInspection();
   const styles = styleEntries(cats);
+  for (const t of extras) styles.push({id:t.id,name:t.manifest.name,status:'approved',font:'模板字体',colors:{},canvas:[1280,720],representative:[],desc:'已批准模板'});
   for (const st of styles) {
     st.layouts_count = layouts.filter((l) => l.family === st.id).length;
   }
@@ -250,7 +274,7 @@ export async function buildIndex(force = false) {
   const indexRevision = stableHash({
     clean: await sha256File(path.join(branchDir(BRANCHES[0]), 'catalog.json')),
     illus: await sha256File(path.join(branchDir(BRANCHES[1]), 'catalog.json')),
-    layoutCount: layouts.length,
+    layouts: layouts.map((l)=>[l.id,l.template_slide,l.source_template_sha,l.approval]),
   });
   const index = {
     index_revision: indexRevision,

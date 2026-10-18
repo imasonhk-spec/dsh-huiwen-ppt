@@ -15,6 +15,8 @@ import path from 'node:path';
 import { config, subdir } from './config.js';
 import { readJson, writeJson, sha256File, nowIso, nowLocal, shortSha } from './util.js';
 import { createProject, inspectSource } from './studio.js';
+import { withProjectLock } from './workflow.js';
+import { listJobs, cancelProjectJobs } from './jobs.js';
 
 export function projectsRoot() {
   return subdir('projects');
@@ -44,6 +46,9 @@ export async function loadProject(id) {
     throw e;
   }
   const state = await readJson(path.join(dir, 'state.json'), {});
+  // project.json is the atomic commit pointer; state.json also serves the standalone engine.
+  if (meta.version && meta.source_name) Object.assign(state,{current:'versions/'+meta.source_name,current_sha256:meta.source_sha256,revision:Number(meta.version.slice(1))});
+  else if (meta.origin==='conversation') Object.assign(state,{current:null,current_sha256:null,revision:0});
   return { id, dir, meta, state };
 }
 
@@ -55,14 +60,17 @@ async function saveProjectMeta(id, meta) {
 async function nextProjectId() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
-  const day = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d).replace(/-/g, '');
   let n = 1;
   const root = projectsRoot();
   const existing = new Set(fs.existsSync(root) ? await fsp.readdir(root) : []);
   // 复用已删除目录留下的空号，避免同日重复
   for (;;) {
     const id = `project-${day}-${String(n).padStart(3, '0')}`;
-    if (!existing.has(id)) return id;
+    if (!existing.has(id) && !fs.existsSync(path.join(config().dataDir, 'exports', id))) {
+      try { await fsp.mkdir(path.join(root, id)); return id; }
+      catch (e) { if (e.code !== 'EEXIST') throw e; }
+    }
     n += 1;
   }
 }
@@ -114,6 +122,7 @@ export async function importFromPath(absPath, title) {
   }
   const id = await nextProjectId();
   const dir = projectDir(id);
+  try {
   const created = await createProject(absPath, dir); // studio: reference.pptx + versions/revision-000.pptx + state.json + annotations.json
   const inspectionPath = path.join(dir, 'inspection.json');
   await inspectSource(path.join(dir, 'reference.pptx'), inspectionPath);
@@ -134,7 +143,11 @@ export async function importFromPath(absPath, title) {
     next_action: '进入对话制作或直接打开画布',
   };
   await saveProjectMeta(id, meta);
-  return { id, meta, state: created.state };
+  const { finalizeVersion }=await import('./generate.js');
+  await finalizeVersion(id,path.join(dir,'versions','revision-000.pptx'),{phase:'import',label:'v0000',file:'revision-000.pptx',expectedSlides:meta.page_count});
+  const loaded=await loadProject(id);
+  return { id, meta:loaded.meta, state:loaded.state };
+  } catch(e) {await fsp.rm(dir,{recursive:true,force:true});throw e;}
 }
 
 /** 从上传 Buffer 创建项目（WF-01 主路径） */
@@ -144,13 +157,13 @@ export async function importFromBuffer(buf, filename, title) {
     e.code = 'INVALID_OPERATION';
     throw e;
   }
-  const id = await nextProjectId();
-  const dir = projectDir(id);
-  await fsp.mkdir(dir, { recursive: true });
-  const staged = path.join(dir, 'staged-upload.pptx');
+  const staged = path.join(config().dataDir, 'cache', 'upload-' + (await import('node:crypto')).randomUUID() + path.extname(filename));
+  await fsp.mkdir(path.dirname(staged), { recursive: true });
   await fsp.writeFile(staged, buf);
   try {
-    return await importFromPath(staged, title || String(filename).replace(/\.[^.]+$/, ''));
+    const r = await importFromPath(staged, title || String(filename).replace(/\.[^.]+$/, ''));
+    await updateProjectMeta(r.id, { original_filename: filename });
+    return loadProject(r.id).then((p) => ({ id: r.id, meta: p.meta, state: p.state }));
   } finally {
     await fsp.rm(staged, { force: true }).catch(() => {});
   }
@@ -168,12 +181,13 @@ export async function listProjectCards() {
     cards.push({
       id: meta.id,
       title: meta.title,
-      file: state.current || 'versions/revision-000.pptx',
+      file: state.current || null,
       pages: meta.page_count || 0,
       sha256: shortSha(state.current_sha256 || meta.source_sha256 || ''),
       style: meta.style_selection?.primary || null,
       engine: 'LibreOffice ' + ((meta.last_render_engine_version) || ''),
       status: meta.status === 'archived' ? 'archived' : (meta.stage || 'draft'),
+      lifecycle_status: meta.status,
       status_label: statusLabel(meta),
       version: meta.version || ('r' + String(state.revision ?? 0).padStart(3, '0')),
       updated: (meta.updated_at || meta.created_at || '').slice(0, 16).replace('T', ' '),
@@ -215,6 +229,7 @@ export async function projectState(id) {
 
 /** 更新扩展状态（stage/checks/...），带乐观锁 */
 export async function updateProjectMeta(id, patch, expectedRevision) {
+  return withProjectLock(id, async () => {
   const { meta } = await loadProject(id);
   if (expectedRevision != null && (meta.state_revision || 1) !== expectedRevision) {
     const e = new Error('项目状态已被其他操作更新，请刷新后重试');
@@ -225,6 +240,37 @@ export async function updateProjectMeta(id, patch, expectedRevision) {
   const next = { ...meta, ...patch, state_revision: (meta.state_revision || 1) + 1, updated_at: nowIso() };
   await saveProjectMeta(id, next);
   return next;
+  });
+}
+
+export async function projectSnapshot(id) {
+  const readSnapshot = async () => {
+    const { dir, meta, state } = await loadProject(id);
+    const snapshot = { id, meta, studio_state: state, jobs: listJobs(id) };
+    for (const [key, file] of Object.entries({ brief: 'brief.json', outline: 'outline.json', materials: 'materials.json', custom_style: 'custom-style.json', selection: 'style-selection.json', plan: 'plan.json', annotations: 'annotations.json', preferences: 'layout-preferences.json' })) snapshot[key] = await readJson(path.join(dir, file), null);
+    if (snapshot.materials) snapshot.materials = await (await import('./materials.js')).listMaterials(id);
+    snapshot.report = meta.latest_report ? await readJson(path.join(dir, meta.latest_report), null) : null;
+    snapshot.renders = snapshot.report?.render_pngs || [];
+    return snapshot;
+  };
+  for (let attempt=0;attempt<3;attempt++) {
+    const snapshot=await readSnapshot();
+    const {meta}=await loadProject(id);
+    if(meta.state_revision===snapshot.meta.state_revision) return snapshot;
+  }
+  throw Object.assign(new Error('项目正在更新，请重新读取快照'),{code:'STATE_REVISION_CONFLICT'});
+}
+
+export async function deleteProject(id) {
+  await cancelProjectJobs(id);
+  return withProjectLock(id, async () => {
+    await loadProject(id);
+    await fsp.rm(projectDir(id), { recursive: true, force: true });
+    await fsp.rm(path.join(config().dataDir, 'exports', id), { recursive: true, force: true });
+    const lib = path.join(config().dataDir, 'library', 'material-knowledge.json');
+    await writeJson(lib, (await readJson(lib, [])).filter((f) => f.project_id !== id));
+    return { deleted: id };
+  });
 }
 
 /** 版本列表 */

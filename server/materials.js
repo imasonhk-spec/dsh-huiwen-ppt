@@ -1,90 +1,63 @@
-/**
- * 汇文 PPT 后端 · 材料（server/materials.js，WF-02）
- * 对话附件 + 材料面板双通道：文件存 projects/<id>/sources/，登记 materials.json。
- * .txt/.md 提取纯文本供后续分析；其余登记元数据（内容分析随 WF-10 知识治理接入）。
- */
-
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { projectDir } from './projects.js';
-import { readJson, writeJson, sha256File, nowIso, runCmd } from './util.js';
+import { projectDir, loadProject } from './projects.js';
+import { readJson, writeJson, sha256Buf, nowIso, runCmd } from './util.js';
 import { config } from './config.js';
-
-const TEXT_EXTS = new Set(['.txt', '.md', '.markdown']);
-/* OOXML 系：经 scripts/extract-text.py（纯标准库）提取正文，登记 .extract.txt 供大纲/填充引用 */
-const OOXML_EXTS = new Set(['.docx', '.docm', '.pptx', '.ppsx', '.potx', '.pptm', '.xlsx', '.xlsm']);
-
-const EXTRACT_TEXT_PY = path.join(path.dirname(fileURLToPath(import.meta.url)), 'scripts', 'extract-text.py');
-
-async function extractOoxmlText(target) {
-  try {
-    const r = await runCmd(config().python, [EXTRACT_TEXT_PY, target, '60000'], { timeoutMs: 60000 });
-    const out = (r.stdout || '').trim();
-    if (r.code === 0 && out) {
-      try {
-        const j = JSON.parse(out);
-        if (j && j.ok && typeof j.text === 'string' && j.text.trim()) return j.text;
-      } catch { /* 输出不合法按提取失败处理 */ }
-    }
-  } catch { /* 超时/进程失败：材料仍登记元数据，正文提取标记保持 false */ }
-  return null;
+import { withProjectLock } from './workflow.js';
+const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'scripts', 'extract-text.py');
+const TEXT = new Set(['.txt', '.md', '.markdown']);
+const EXTRACT = new Set(['.docx','.docm','.pptx','.ppsx','.potx','.pptm','.xlsx','.xlsm','.pdf']);
+const IMAGES = new Set(['png','jpg','jpeg','webp','gif','bmp','svg']);
+export function isVisualReference(entry) { return IMAGES.has(entry.type); }
+function materialRole(entry) {
+  if (!isVisualReference(entry)) return entry;
+  const { extraction_error, ...reference } = entry;
+  return { ...reference, role: 'visual-reference', text_extracted: false, extraction_status: 'not-required' };
 }
-
-export async function listMaterials(id) {
-  return readJson(path.join(projectDir(id), 'materials.json'), []);
-}
-
+export async function listMaterials(id) { return (await readJson(path.join(projectDir(id), 'materials.json'), [])).map(materialRole); }
+export async function listContentMaterials(id) { return (await listMaterials(id)).filter(m => m.role !== 'visual-reference'); }
 export async function addMaterial(id, buf, filename) {
-  const name = path.basename(String(filename || 'material.bin'));
-  const dir = path.join(projectDir(id), 'sources');
-  await fsp.mkdir(dir, { recursive: true });
-  const safe = name.replace(/[^\w.\-\u4e00-\u9fff]+/g, '_');
-  const target = path.join(dir, safe);
-  await fsp.writeFile(target, buf);
-  const entry = {
-    id: 'mat-' + Date.now().toString(36),
-    name: name,
-    file: path.join('sources', safe),
-    size: buf.length,
-    sha256: await sha256File(target),
-    type: (path.extname(safe).slice(1) || 'bin').toLowerCase(),
-    text_extracted: false,
-    added_at: nowIso(),
-  };
-  if (TEXT_EXTS.has(path.extname(safe).toLowerCase())) {
-    try {
-      const txt = buf.toString('utf8');
-      await fsp.writeFile(path.join(dir, safe + '.extract.txt'), txt);
-      entry.text_extracted = true;
-      entry.text_chars = txt.length;
-    } catch { /* 非UTF-8文本跳过提取 */ }
-  } else if (OOXML_EXTS.has(path.extname(safe).toLowerCase())) {
-    const txt = await extractOoxmlText(target); // docx/pptx/xlsx 系正文提取（失败仅登记元数据，不阻断上传）
-    if (txt) {
-      await fsp.writeFile(path.join(dir, safe + '.extract.txt'), txt);
-      entry.text_extracted = true;
-      entry.text_chars = txt.length;
-    }
-  }
-  const list = await listMaterials(id);
-  // 同名同哈希幂等
-  if (list.some((m) => m.sha256 === entry.sha256 && m.name === entry.name)) {
-    await fsp.rm(target, { force: true }).catch(() => {});
-    return { entry: list.find((m) => m.sha256 === entry.sha256), deduplicated: true };
-  }
-  list.push(entry);
-  await writeJson(path.join(projectDir(id), 'materials.json'), list);
-  return { entry, deduplicated: false };
+  return withProjectLock(id, async () => {
+    await loadProject(id);
+    const name = path.basename(String(filename || 'material.bin')), ext = path.extname(name).toLowerCase(), sha = sha256Buf(buf);
+    const list = await listMaterials(id);
+    const hit = list.find((m) => m.sha256 === sha && m.name === name);
+    if (hit) return { entry: hit, deduplicated: true };
+    const mid = 'mat-' + randomUUID(), file = 'sources/' + mid + ext, target = path.join(projectDir(id), file);
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    await fsp.writeFile(target, buf, { flag: 'wx' });
+    const entry = materialRole({ id: mid, name, file, size: buf.length, sha256: sha, type: ext.slice(1), text_extracted: false, extraction_status: 'unsupported', added_at: nowIso() });
+    if (entry.role !== 'visual-reference') try {
+      let extracted;
+      if (TEXT.has(ext)) { const text = new TextDecoder('utf-8', { fatal: true }).decode(buf); extracted = { ok: true, text, chars: text.length, truncated: false, blocks: text.split(/\n\s*\n/).map((text,i) => ({ locator: '段落 ' + (i+1), text })) }; }
+      else if (EXTRACT.has(ext)) {
+        const r = await runCmd(config().python, [SCRIPT, target, '0'], { timeoutMs: 60000 });
+        if (r.code !== 0) throw new Error(r.stderr || '正文提取失败');
+        extracted = JSON.parse(r.stdout);
+      }
+      if (extracted?.ok && extracted.text.trim()) {
+        await fsp.writeFile(target + '.extract.txt', extracted.text);
+        await writeJson(target + '.extract.json', extracted);
+        Object.assign(entry, { text_extracted: true, extraction_status: extracted.truncated ? 'partial' : 'complete', text_chars: extracted.chars, blocks: extracted.blocks?.length || 0 });
+      } else entry.extraction_error = '格式不支持或未提取到正文；扫描件需要 OCR';
+    } catch (e) { entry.extraction_status = 'failed'; entry.extraction_error = e.message; }
+    list.push(entry);
+    try { await writeJson(path.join(projectDir(id), 'materials.json'), list); }
+    catch (e) { await Promise.all([target,target+'.extract.txt',target+'.extract.json'].map((p)=>fsp.rm(p,{force:true}))); throw e; }
+    return { entry, deduplicated: false };
+  });
 }
-
 export async function removeMaterial(id, matId) {
-  const list = await listMaterials(id);
-  const idx = list.findIndex((m) => m.id === matId);
-  if (idx < 0) return null;
-  const [entry] = list.splice(idx, 1);
-  await writeJson(path.join(projectDir(id), 'materials.json'), list);
-  await fsp.rm(path.join(projectDir(id), entry.file), { force: true }).catch(() => {});
-  return entry;
+  return withProjectLock(id, async () => {
+    const list = await listMaterials(id), entry = list.find((m) => m.id === matId);
+    if (!entry) return null;
+    const remaining = list.filter((m) => m.id !== matId);
+    await writeJson(path.join(projectDir(id), 'materials.json'), remaining);
+    if (!remaining.some((m) => m.file === entry.file)) await Promise.all(['','.extract.txt','.extract.json'].map((suffix)=>fsp.rm(path.join(projectDir(id), entry.file + suffix),{force:true})));
+    const sourceDir=path.dirname(path.join(projectDir(id),entry.file));
+    for(const file of await fsp.readdir(sourceDir)) if(file.startsWith(path.basename(entry.file)+'.summary-')) await fsp.rm(path.join(sourceDir,file),{force:true});
+    return entry;
+  });
 }

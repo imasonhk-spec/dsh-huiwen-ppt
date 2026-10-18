@@ -10,6 +10,7 @@
 import { config } from './config.js';
 import { runCmd } from './util.js';
 import { findDshModel, probeProvider } from './dsh-models.js';
+import { operationSignal, checkCancelled, modelBudget } from './workflow.js';
 
 const TAGS_TTL = 15000;
 let tagsCache = null;
@@ -25,7 +26,7 @@ async function ollamaCurl(method, apiPath, body, timeoutMs) {
       method,
       headers: { 'content-type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
+      signal: operationSignal() ? AbortSignal.any([ctrl.signal, operationSignal()]) : ctrl.signal,
     });
     const text = await res.text();
     if (!res.ok) {
@@ -35,6 +36,7 @@ async function ollamaCurl(method, apiPath, body, timeoutMs) {
     }
     return JSON.parse(text);
   } catch (e) {
+    checkCancelled();
     if (e.name === 'AbortError') {
       const t = new Error('Ollama 请求超时');
       t.code = 'LLM_TIMEOUT';
@@ -131,12 +133,13 @@ async function openaiChat(opts) {
     messages,
     temperature: opts.temperature ?? 0.3,
   };
+  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
   try {
     const res = await fetch(String(model.baseURL).replace(/\/$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(model.headers || {}) },
       body: JSON.stringify(body),
-      signal: ctrl.signal,
+      signal: operationSignal() ? AbortSignal.any([ctrl.signal, operationSignal()]) : ctrl.signal,
     });
     const text = await res.text();
     if (!res.ok) {
@@ -145,11 +148,14 @@ async function openaiChat(opts) {
       throw e;
     }
     const data = JSON.parse(text);
+    await modelBudget()?.recordUsage({ tokens: data.usage?.total_tokens ?? (Number.isSafeInteger(data.usage?.prompt_tokens) && data.usage.prompt_tokens >= 0 && Number.isSafeInteger(data.usage?.completion_tokens) && data.usage.completion_tokens >= 0 ? data.usage.prompt_tokens + data.usage.completion_tokens : null) });
     let content = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
     if (Array.isArray(content)) content = content.map((c) => (c && c.text) || '').join('');
+    if (data.choices?.[0]?.finish_reason === 'length') throw Object.assign(new Error('模型输出被长度限制截断'), { code:'LLM_OUTPUT_TRUNCATED', output:content });
     // thinking 模型可能输出 <think>…</think>；剥离后取正文
     return content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   } catch (e) {
+    checkCancelled();
     if (e.name === 'AbortError') {
       const t = new Error('LLM 请求超时');
       t.code = 'LLM_TIMEOUT';
@@ -169,6 +175,8 @@ async function openaiChat(opts) {
  * @returns {string} 助手回复文本
  */
 export async function chat(opts) {
+  const budget = modelBudget();
+  if (budget) opts = { ...opts, maxTokens: await budget.beforeRequest({ maxTokens: opts.maxTokens ?? 2048 }) };
   if (opts.model && opts.model.channel === 'openai') {
     return openaiChat(opts);
   }
@@ -179,15 +187,41 @@ export async function chat(opts) {
       ...(opts.system ? [{ role: 'system', content: opts.system }] : []),
       ...(opts.messages || []),
     ],
-    options: { temperature: opts.temperature ?? 0.3 },
+    options: { temperature: opts.temperature ?? 0.3, ...(opts.maxTokens ? { num_predict:opts.maxTokens } : {}) },
   };
   if (opts.json) body.format = 'json';
   const data = await ollamaCurl('POST', '/api/chat', body, opts.timeoutMs);
+  await budget?.recordUsage({ tokens: Number.isSafeInteger(data.prompt_eval_count) && data.prompt_eval_count >= 0 && Number.isSafeInteger(data.eval_count) && data.eval_count >= 0 ? data.prompt_eval_count + data.eval_count : null });
   const msg = data && data.message;
   let content = (msg && msg.content) || '';
+  if (data.done_reason === 'length') throw Object.assign(new Error('模型输出被长度限制截断'), { code:'LLM_OUTPUT_TRUNCATED', output:content });
   // thinking 模型可能输出 <think>…</think>；剥离后取正文
   content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   return content;
+}
+
+/** Correct invalid structured output once, retaining the source request; transport failures propagate. */
+export async function chatJson(opts, validate) {
+  const messages=[...(opts.messages || [])];
+  const maxTokens=opts.maxTokens || 2048;
+  for (let attempt=0;attempt<2;attempt++) {
+    let answer='', parsed, issue, truncated=false;
+    try { answer=await chat({...opts,messages,json:true,maxTokens}); }
+    catch (e) {
+      if (e.code!=='LLM_OUTPUT_TRUNCATED') throw e;
+      answer=e.output || ''; issue=e.message; truncated=true;
+    }
+    if (!issue) {
+      try { parsed=JSON.parse(answer.match(/\{[\s\S]*\}/)?.[0] || answer); }
+      catch { issue='模型输出不是完整有效的 JSON'; truncated=true; }
+    }
+    if (!issue && (!parsed || typeof parsed!=='object' || Array.isArray(parsed))) issue='响应必须为 JSON 对象';
+    if (!issue && validate) issue=validate(parsed);
+    if (!issue) return parsed;
+    if (attempt===1) throw Object.assign(new Error(issue+'；自动纠正后仍不合格，请重试'), {code:'LLM_BAD_OUTPUT'});
+    messages.push({role:'assistant',content:answer},{role:'user',content:'上次输出未通过校验：'+issue+'。请基于原始材料和要求纠正，输出完整 JSON，不得新增无依据内容。'});
+    if (truncated) messages[messages.length-1].content+=' 输出长度受服务限制，请精简重复表述和解释，保留全部必要字段和关键事实。';
+  }
 }
 
 /** 快速健康探测（轻量 ping，避免拉起大模型） */

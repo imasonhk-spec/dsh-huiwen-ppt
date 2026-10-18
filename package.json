@@ -1,6 +1,6 @@
 {
   "name": "@local/huiwen-ppt",
-  "version": "0.3.5",
+  "version": "0.4.9+botbudget.2",
   "private": true,
   "type": "module",
   "description": "汇文 PPT —— 模板驱动的 PPT 快速生产（真实后端：资源索引 / 项目 / LibreOffice 渲染 / 真模型对话）",
@@ -37,7 +37,7 @@
       "order": 20,
       "icon": "🎬",
       "category": "协作效率",
-      "version": "v0.3.5-a0",
+      "version": "v0.4.9+botbudget.2",
       "tags": [
         "模板库",
         "项目向导",

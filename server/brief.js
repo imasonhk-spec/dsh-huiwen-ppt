@@ -7,16 +7,20 @@
 import path from 'node:path';
 import { readJson, writeJson, nowIso } from './util.js';
 import { projectDir } from './projects.js';
+import { updateProjectMeta } from './projects.js';
+import { config } from './config.js';
 
 export async function loadBrief(id) {
   return readJson(path.join(projectDir(id), 'brief.json'), null);
 }
 
 export async function saveBriefDraft(id, patch) {
+  if (patch.page_count!=null && (!Number.isInteger(patch.page_count)||patch.page_count<2||patch.page_count>config().limits.pagesMax)) throw Object.assign(new Error('页数必须为 2–'+config().limits.pagesMax),{code:'INVALID_OPERATION'});
   const cur = (await loadBrief(id)) || {};
   const next = { ...cur, ...patch, updated_at: nowIso() };
   if (next.approvals && typeof next.approvals !== 'object') delete next.approvals;
   await writeJson(path.join(projectDir(id), 'brief.json'), next);
+  if (next.title) await updateProjectMeta(id,{title:next.title});
   return next;
 }
 

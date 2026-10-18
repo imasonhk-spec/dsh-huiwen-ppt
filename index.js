@@ -36,7 +36,7 @@ export const MANIFEST = {
   order: 20,
   icon: '🎬',
   category: '协作效率',
-  version: 'v0.2.0-a0',
+  version: 'v'+VERSION,
   tags: ['模板库', '对话制作', '画布审阅'],
   subs: ['模板库', '对话制作', '画布'],
   openEvent: 'cappacks:open-huiwen-ppt',

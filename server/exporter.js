@@ -1,65 +1,55 @@
-/**
- * 汇文 PPT 后端 · 导出与归档（server/exporter.js，WF-08）
- * 导出 = 当前版本复制到工作区 exports/ 并登记（exports.json）→ 项目闭环归档（只读、版本定格）。
- * 下载路由带 content-disposition，浏览器直取；重新打开解除只读（既有 /reopen）。
- */
-
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { projectDir, loadProject, updateProjectMeta } from './projects.js';
 import { readJson, writeJson, sha256File, nowIso, apiError } from './util.js';
-
-export async function exportsRegistry(projectId) {
-  return readJson(path.join(projectDir(projectId), 'exports.json'), []);
-}
-
-/** 导出当前版本 → exports/<project-id>/ 并归档项目 */
-export async function exportProject(projectId, { note = '' } = {}) {
-  const { meta } = await loadProject(projectId);
-  if (meta.status === 'archived') throw apiError('INVALID_OPERATION', '项目已归档，先重新打开再导出新版本');
-  if (!meta.version || !meta.source_name || !meta.source_sha256) {
-    throw apiError('INVALID_OPERATION', '尚无可导出的版本，先生成（WF-06）');
-  }
-  const src = path.join(projectDir(projectId), 'versions', meta.source_name);
-  if (!fs.existsSync(src)) throw apiError('SOURCE_NOT_FOUND', '版本文件缺失：' + meta.source_name);
-  const outDir = path.join(config().dataDir, 'exports', projectId);
-  await fsp.mkdir(outDir, { recursive: true });
-  const exportName = meta.title.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40) + '_' + meta.version + '.pptx';
-  const target = path.join(outDir, exportName);
-  await fsp.copyFile(src, target);
-  const sha = await sha256File(target);
-  const list = await exportsRegistry(projectId);
-  const entry = {
-    id: 'exp-' + Date.now().toString(36),
-    version: meta.version,
-    file: path.join('exports', projectId, exportName),
-    download_name: exportName,
-    sha256: sha,
-    note: note || '',
-    exported_at: nowIso(),
-  };
-  if (!list.some((e) => e.sha256 === entry.sha256)) {
-    list.push(entry);
-    await writeJson(path.join(projectDir(projectId), 'exports.json'), list);
-  }
-  // 导出即闭环归档（WF-08）：版本定格、只读；visual_review 待 WPS 验收，导出视为用户验收
-  await updateProjectMeta(projectId, {
-    status: 'archived',
-    archived_at: nowIso(),
-    next_action: null,
-    checks: { ...(meta.checks || {}), user_acceptance: 'pass' },
+import { withProjectLock } from './workflow.js';
+import { invalidateIndex } from './index-builder.js';
+export async function exportsRegistry(id) { return readJson(path.join(projectDir(id),'exports.json'),[]); }
+export async function exportProject(id,{note=''}={}) {
+  return withProjectLock(id,async()=>{
+    const {meta}=await loadProject(id);
+    if(!meta.version || !meta.source_name) throw apiError('INVALID_OPERATION','尚无可导出版本');
+    const src=path.join(projectDir(id),'versions',meta.source_name),sha=await sha256File(src);
+    if(sha!==meta.source_sha256) throw apiError('SOURCE_HASH_MISMATCH','当前文件发生变化');
+    const list=await exportsRegistry(id);
+    const previous=list.find((e)=>e.version===meta.version && e.sha256===sha && fs.existsSync(path.join(config().dataDir,e.file)));
+    let entry=previous;
+    if(!entry) {
+      const exportId='exp-'+randomUUID(),downloadName=(meta.title || id).replace(/[\\/:*?"<>|]+/g,'_').slice(0,60)+'_'+meta.version+'.pptx';
+      const rel=path.join('exports',id,exportId,downloadName),target=path.join(config().dataDir,rel);
+      await fsp.mkdir(path.dirname(target),{recursive:true}); await fsp.copyFile(src,target,fs.constants.COPYFILE_EXCL);
+      entry={id:exportId,version:meta.version,file:rel,download_name:downloadName,sha256:sha,note,exported_at:nowIso()};
+      list.push(entry); await writeJson(path.join(projectDir(id),'exports.json'),list);
+    }
+    await updateProjectMeta(id,{status:'archived',archived_at:nowIso(),last_export:entry.id,next_action:'重新打开继续制作'});
+    invalidateIndex(); return {...entry,archived:true,deduplicated:!!previous};
   });
-  return { ...entry, archived: true };
 }
-
-/** 下载响应（attachment） */
-export async function downloadVersion(projectId) {
-  const { meta } = await loadProject(projectId);
-  if (!meta.source_name) throw apiError('INVALID_OPERATION', '尚无可下载的版本');
-  const src = path.join(projectDir(projectId), 'versions', meta.source_name);
-  if (!fs.existsSync(src)) throw apiError('SOURCE_NOT_FOUND', '版本文件缺失：' + meta.source_name);
-  const name = (meta.title || meta.id).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 40) + '_' + (meta.version || 'v0001') + '.pptx';
-  return { path: src, name };
+export async function downloadVersion(id,{version,export_id}={}) {
+  const {meta}=await loadProject(id);
+  if(export_id) {
+    const entry=(await exportsRegistry(id)).find((e)=>e.id===export_id);
+    if(!entry) throw apiError('SOURCE_NOT_FOUND','导出记录不存在');
+    const file=path.join(config().dataDir,entry.file);
+    if(!fs.existsSync(file) || await sha256File(file)!==entry.sha256) throw apiError('SOURCE_NOT_FOUND','导出文件缺失或已变化');
+    return {path:file,name:entry.download_name};
+  }
+  const label=version || meta.version;
+  if(!/^v\d{4,}$/.test(label || '')) throw apiError('INVALID_OPERATION','没有有效的版本');
+  const file=path.join(projectDir(id),'versions','revision-'+String(Number(label.slice(1))).padStart(3,'0')+'.pptx');
+  if(!fs.existsSync(file)) throw apiError('SOURCE_NOT_FOUND','版本文件不存在');
+  return {path:file,name:(meta.title || id).replace(/[\\/:*?"<>|]+/g,'_')+'_'+label+'.pptx'};
+}
+export async function orphanExports() {
+  const root=path.join(config().dataDir,'exports'); if(!fs.existsSync(root)) return [];
+  const out=[];
+  for(const id of await fsp.readdir(root)) if(!fs.existsSync(path.join(projectDir(id),'project.json'))) out.push({project_id:id,file:path.join('exports',id)});
+  return out;
+}
+export async function deleteOrphanExport(id) {
+  if(!(await orphanExports()).some((e)=>e.project_id===id)) throw apiError('INVALID_OPERATION','仅能清理清单中的孤立导出');
+  await fsp.rm(path.join(config().dataDir,'exports',id),{recursive:true,force:true}); return {deleted:id};
 }

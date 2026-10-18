@@ -11,6 +11,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { config, subdir } from './config.js';
 import { runCmd, sha256File, nowIso } from './util.js';
+import { renderWindows } from './windows-render.js';
 
 let LO_VERSION = null;
 let LO_PROFILE = null;
@@ -36,14 +37,18 @@ function loProfileDir() {
  * @returns 渲染报告 { engine, engine_version, source_sha256, pages, files, warnings, visual_review, duration_ms, created_at }
  */
 export async function renderPptxToPngs(pptxPath, outDir, opts = {}) {
+  const engine=opts.engine || config().render.engine;
+  if(['wps','powerpoint'].includes(engine)) return renderWindows(pptxPath,outDir,{...opts,engine});
+  if(engine!=='libreoffice') throw Object.assign(new Error('未知渲染引擎：'+engine),{code:'ENGINE_UNAVAILABLE'});
   const started = Date.now();
   const cfg = config().render;
   const width = opts.width || cfg.width;
   const height = opts.height || cfg.height;
   const timeoutMs = opts.timeoutMs || cfg.timeoutMs;
   await fsp.mkdir(outDir, { recursive: true });
-  const tmpDir = subdir('cache', 'tmp-render-' + Date.now().toString(36));
+  const tmpDir = await fsp.mkdtemp(path.join(subdir('cache'),'tmp-render-'));
 
+  try {
   const version = await libreOfficeVersion();
   if (!version) {
     const e = new Error('LibreOffice 不可用，无法渲染预览');
@@ -53,7 +58,7 @@ export async function renderPptxToPngs(pptxPath, outDir, opts = {}) {
   }
 
   // 1) PPTX → PDF（独立 UserInstallation，避免 headless 首跑初始化失败与并发锁）
-  const envUrl = pathToFileURL(loProfileDir()).href;
+  const envUrl = pathToFileURL(path.join(tmpDir,'lo-profile')).href;
   const pdfOut = tmpDir;
   const conv = await runCmd('soffice',
     ['-env:UserInstallation=' + envUrl, '--headless', '--convert-to', 'pdf', '--outdir', pdfOut, String(pptxPath)],
@@ -91,7 +96,6 @@ export async function renderPptxToPngs(pptxPath, outDir, opts = {}) {
     throw e;
   }
 
-  await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   const warnings = [
     { type: 'font_substitution', note: '服务器无微软雅黑，预览由 Noto Sans CJK/文泉驿替代渲染；最终视觉验收以 WPS 打开导出文件为准' },
   ];
@@ -106,4 +110,5 @@ export async function renderPptxToPngs(pptxPath, outDir, opts = {}) {
     duration_ms: Date.now() - started,
     created_at: nowIso(),
   };
+  } finally { await fsp.rm(tmpDir, {recursive:true,force:true}).catch(()=>{}); }
 }

@@ -16,6 +16,8 @@ import { readJson, writeJson, sha256File, nowIso, apiError } from './util.js';
 import { loadOutline } from './outline.js';
 import { loadBrief } from './brief.js';
 import { buildIndex } from './index-builder.js';
+import { planFingerprint } from './dependencies.js';
+import { withProjectLock } from './workflow.js';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'scripts', 'extract_theme.py');
 
@@ -49,8 +51,12 @@ export async function importCustomTemplate(projectId, buf, filename) {
   const dir = projectDir(projectId);
   await fsp.mkdir(dir, { recursive: true });
   const target = path.join(dir, 'custom-template.pptx');
-  await fsp.writeFile(target, buf);
-  const theme = await runPython([SCRIPT, target], 30000);
+  const staged=path.join(dir,'template-upload-'+(await import('node:crypto')).randomUUID()+'.pptx');
+  await fsp.writeFile(staged, buf);
+  let theme;
+  try { theme = await runPython([SCRIPT, staged], 30000); }
+  catch(e) { await fsp.rm(staged,{force:true}); throw e; }
+  await fsp.rename(staged,target);
   const meta = await loadProject(projectId);
   const custom = {
     id: 'custom-' + meta.meta.id,
@@ -78,20 +84,38 @@ export async function getCustomStyle(projectId) {
 
 export async function selectStyle(projectId, { family, count, custom }) {
   if (!family) throw apiError('REQUIRED_FIELD_MISSING', '缺少风格 family');
-  const n = Math.max(1, Math.min(500, parseInt(count, 10) || 8));
-  const index = await buildIndex();
+  const brief = await loadBrief(projectId), outline = await loadOutline(projectId);
+  const n = count == null ? (brief?.page_count || outline?.pages?.length || 8) : Number(count);
+  if (!Number.isInteger(n) || n < 2 || n > config().limits.pagesMax) throw apiError('INVALID_OPERATION','页数必须为 2–'+config().limits.pagesMax);
+  let index = await buildIndex();
   const isBuiltin = index.styles.some((s) => s.id === family);
   const customStyle = await getCustomStyle(projectId);
   const isCustom = family === (customStyle && customStyle.id);
   if (!isBuiltin && !isCustom) {
     throw apiError('INVALID_OPERATION', '未知风格：' + family + '（内置分支或先导入自定义模板）');
   }
+  let templateId = null;
+  if (isCustom) {
+    const { learnFromProject, approveTemplateFolder } = await import('./knowledge.js');
+    const folder = await learnFromProject(projectId);
+    await approveTemplateFolder(folder.id, '用户', '在项目中明确选择使用此上传模板');
+    templateId = folder.id; index = await buildIndex(true);
+  }
   const sel = {
     family,
+    template_id: templateId,
     count: n,
     custom_style: isCustom ? { id: customStyle.id, name: customStyle.name, sha256: customStyle.template_sha256 } : null,
     selected_at: nowIso(),
   };
+  if (outline?.pages?.length !== n) {
+    const { saveBriefDraft } = await import('./brief.js');
+    const { generateOutlineForProject } = await import('./dialogue.js');
+    const { confirmOutline } = await import('./outline.js');
+    await saveBriefDraft(projectId,{page_count:n});
+    await generateOutlineForProject(projectId,null,'按最新页数重新组织内容：');
+    await confirmOutline(projectId,'用户动作','页数变更后按请求继续制作');
+  }
   await writeJson(path.join(projectDir(projectId), 'style-selection.json'), sel);
   await updateProjectMeta(projectId, { style_selection: { family: sel.family, count: sel.count }, stage: 'pages', next_action: '确认逐页版式计划' });
   return sel;
@@ -113,24 +137,30 @@ const REL_FALLBACK = {
   封面: '需求', 收尾: '计划', 总览: '定位', 架构: '技术', 数据: '指标', 案例: '价值', 治理: '规则', 生态: '定位', 对比: '指标', 素材: '界面',
 };
 
+// Suitable alternatives share the selected theme; cover/closing are never body substitutes.
+const REL_ALTERNATIVES = {
+  '能力资产':['总览','生态','案例'], '总览':['生态','架构','案例'], '定位':['总览','生态','架构'],
+  '架构':['生态','总览','技术'], '技术':['架构','生态','总览'], '生态':['总览','架构'],
+  '流程':['计划','案例','需求'], '计划':['流程','案例','表格'], '需求':['案例','对比','总览'],
+  '数据':['对比','表格','案例'], '指标':['数据','对比','表格'], '对比':['表格','数据'],
+  '案例':['需求','流程','总览'], '价值':['案例','指标','总览'], '表格':['对比','数据'],
+  '规则':['治理','流程','案例','表格','需求','对比'], '治理':['规则','流程','案例','表格','需求','对比'], '异常':['治理','规则','流程'],
+};
+
 function layoutPool(index, relation, family, customMode) {
   /* 0.3.3：custom_mode 的构建模板固定为绿色简洁商务（generate.startGenerate），版式池须与之同族
    * 0.3.4.3：参考图构图包（reference_pack / reference_fidelity_reconstruction / id 含 reference-）是构图参考而非模板页，
    * 其 template_slide 无对应 inspection 页（曾致「模板页越界 #19」生成失败）——所有模式均排除 */
   const isReference = (l) => l.pack === 'reference_pack' || l.origin === 'reference_fidelity_reconstruction' || /reference-/.test(l.id);
   const famMatch = (l) => {
-    if (customMode) return l.family === 'green-clean-business' && l.approval === 'approved' && !isReference(l) ? 1 : 0;
-    return l.family === family && !isReference(l) ? 1 : 0;
+    return (l.family === family || l.template_id === family) && l.approval === 'approved' && Number.isInteger(l.template_slide) && !isReference(l) ? 1 : 0;
   };
   const byRel = (rel) => index.layouts.filter((l) => l.relation === rel && famMatch(l));
   /* 优先级：本族该 relation → 归一映射后的本族 relation → 本族全部 → 全库兜底（库无本族版式时） */
-  let pool = byRel(relation);
-  if (!pool.length && REL_FALLBACK[relation]) pool = byRel(REL_FALLBACK[relation]);
-  if (!pool.length) pool = index.layouts.filter(famMatch);
-  if (!pool.length) pool = index.layouts.filter((l) => l.relation === relation);
-  if (!pool.length) pool = index.layouts.filter((l) => l.relation === '内容页');
-  if (!pool.length) pool = index.layouts.slice();
-  return pool.sort((a, b) => a.id.localeCompare(b.id));
+  const relations=[relation,REL_FALLBACK[relation],...(REL_ALTERNATIVES[relation] || REL_ALTERNATIVES[REL_FALLBACK[relation]] || [])].filter(Boolean);
+  let pool=[...new Map(relations.flatMap(byRel).map(l=>[l.id,l])).values()];
+  if (!pool.length) pool=index.layouts.filter(l=>famMatch(l)&&!['封面','收尾','素材'].includes(l.relation)).sort((a,b)=>a.id.localeCompare(b.id));
+  return pool;
 }
 
 export async function buildPlan(projectId, opts = {}) {
@@ -148,27 +178,28 @@ export async function buildPlan(projectId, opts = {}) {
   const customMode = !!sel.custom_style;
   const cur = await readJson(path.join(projectDir(projectId), 'plan.json'), null);
   // WF-05：以风格选择页数为目标；大纲页不足时按通用候选补页（derived），超出截断（对应原客户端 EXTRA_PAGES 逻辑）
-  const EXTRA = [['总结与展望', '总结'], ['团队介绍', '人员'], ['风险与对策', '治理'], ['下一步计划', '计划'], ['互动答疑', '互动']];
   let basePages = outline.pages.map((p) => ({ ...p }));
-  let ei = 0;
-  while (basePages.length < sel.count) {
-    const [t, rel] = EXTRA[ei % EXTRA.length];
-    basePages.push({ n: 0, title: t + (ei >= EXTRA.length ? '（' + (Math.floor(ei / EXTRA.length) + 1) + '）' : ''), purpose: '扩展页（执行计划补足）', key_points: [], evidence: '', relation: rel });
-    ei += 1;
-  }
-  basePages = basePages.slice(0, sel.count).map((p, i) => ({ ...p, n: i + 1 }));
+  if (basePages.length !== sel.count) throw apiError('STATE_REVISION_CONFLICT','大纲页数与需求不一致，需要模型重新组织内容');
+  const preferences = await readJson(path.join(projectDir(projectId),'layout-preferences.json'),[]);
+  const used=new Map();
   const pages = basePages.map((p, i) => {
-    const prev = cur && cur.pages && cur.pages[i] && cur.pages[i].title === p.title ? cur.pages[i] : null;
-    const pool = layoutPool(index, p.relation, sel.family, customMode);
-    const alt = prev ? prev.alt % pool.length : 0;
-    const layout = pool[alt];
+    const prev = cur?.style_selection?.family===sel.family && cur.pages?.[i]?.title===p.title ? cur.pages[i] : null;
+    const pool = layoutPool(index, p.relation, sel.template_id || sel.family, customMode);
+    const preferred = preferences.find((item)=>item.n===p.n);
+    const ranked=pool.map((layout,rank)=>({layout,rank})).sort((a,b)=>(used.get(a.layout.id)||0)-(used.get(b.layout.id)||0)||a.rank-b.rank);
+    const legacyChoice=!cur?.layout_assignment && prev?.alt>0 ? pool.find(l=>l.id===prev.layout_id) : null;
+    const layout = preferred ? index.layouts.find((l)=>l.id===preferred.layout_id && l.approval==='approved' && l.pack!=='reference_pack') : (legacyChoice || ranked[0]?.layout);
     if (!layout || !validIds.has(layout.id)) {
       throw apiError('UNSUPPORTED_OBJECT', '版式池为空：' + p.relation);
     }
-    return { n: p.n, title: p.title, relation: p.relation, alt, layout_id: layout.id, purpose: p.purpose || '', key_points: p.key_points || [] };
+    used.set(layout.id,(used.get(layout.id)||0)+1);
+    const alt=Math.max(0,pool.findIndex(l=>l.id===layout.id));
+    return { n: p.n, title: p.title, relation: p.relation, alt, layout_id: layout.id, template_id:layout.template_id,template_sha256:layout.source_template_sha,source_slide:layout.template_slide,purpose: p.purpose || '', key_points: p.key_points || [],evidence:p.evidence };
   });
   const plan = {
+    layout_assignment: 'automatic-diverse',
     style_selection: sel,
+    input_fingerprint: await planFingerprint(projectId),
     pages,
     outline_approved: outline.approvals.outline,
     brief_confirmed: ((await loadBrief(projectId)) || {}).approvals ? (((await loadBrief(projectId)) || {}).approvals.requirements || null) : null,
@@ -187,11 +218,13 @@ export async function rerollPage(projectId, n) {
   const page = plan.pages.find((p) => p.n === Number(n));
   if (!page) throw apiError('SOURCE_NOT_FOUND', '计划中没有第 ' + n + ' 页');
   const index = await buildIndex();
-  const pool = layoutPool(index, page.relation, plan.style_selection.family, !!plan.style_selection.custom_style);
+  const pool = layoutPool(index, page.relation, plan.style_selection.template_id || plan.style_selection.family, !!plan.style_selection.custom_style);
   if (pool.length < 2) return page; // 单版式关系无从换
   const next = (page.alt + 1) % pool.length;
   page.alt = next;
   page.layout_id = pool[next].id;
+  page.source_slide = pool[next].template_slide; page.template_id = pool[next].template_id; page.template_sha256 = pool[next].source_template_sha;
+  await addLayoutPreference(projectId,page.layout_id,page.n);
   plan.updated_at = nowIso();
   await writeJson(planPath, plan);
   return page;
@@ -199,6 +232,19 @@ export async function rerollPage(projectId, n) {
 
 export async function getPlan(projectId) {
   return readJson(path.join(projectDir(projectId), 'plan.json'), null);
+}
+
+export async function addLayoutPreference(id, layoutId, n) {
+  return withProjectLock(id,async()=>{
+    await loadProject(id);
+    const index=await buildIndex(),lay=index.layouts.find((l)=>l.id===layoutId);
+    if(!lay || lay.approval!=='approved' || lay.pack==='reference_pack') throw apiError('UNSUPPORTED_OBJECT','只能加入已批准的实际模板页');
+    const file=path.join(projectDir(id),'layout-preferences.json'), list=await readJson(file,[]);
+    const page=n==null?list.length+1:Number(n);
+    if(!Number.isInteger(page)||page<1||page>config().limits.pagesMax) throw apiError('INVALID_OPERATION','目标页码无效');
+    const next=[...list.filter((p)=>p.n!==page),{n:page,layout_id:layoutId,template_id:lay.template_id,sha256:lay.source_template_sha}];
+    await writeJson(file,next); return next;
+  });
 }
 
 /** plan → 客户端 pageLayouts 卡片形状 */

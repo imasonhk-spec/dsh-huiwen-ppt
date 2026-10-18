@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { config, subdir } from './config.js';
+import { config, subdir, updateConfig } from './config.js';
 import { readJsonBody, readBody, readJson, safeJoin, apiError, nowIso } from './util.js';
 import { engineMatrix } from './engines.js';
 import { buildIndex, cachedIndex, invalidateIndex } from './index-builder.js';
@@ -23,11 +23,15 @@ import * as generate from './generate.js';
 import * as revise from './revise.js';
 import * as exporter from './exporter.js';
 import * as knowledge from './knowledge.js';
-import { getJob as getJobById, requestCancel as cancelJobById } from './jobs.js';
+import { getJob as getJobById, requestCancel as cancelJobById, cancelProjectJobs } from './jobs.js';
 import { VERSION } from './meta.js';
+import { inputFingerprint, planFingerprint } from './dependencies.js';
+import * as editor from './editor.js';
+import { withProjectLock } from './workflow.js';
 
 const MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml',
+  '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp',
   '.pdf': 'application/pdf', '.json': 'application/json; charset=utf-8',
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
@@ -50,6 +54,7 @@ const STATUS_BY_CODE = {
   UNSUPPORTED_OBJECT: 400,
   KNOWLEDGE_SOURCE_MISSING: 400,
   TEMPLATE_NOT_APPROVED: 409,
+  TEMPLATE_SELECTION_REQUIRED: 409,
   JOB_CANCELLED: 409,
   ENGINE_UNAVAILABLE: 503,
   RENDER_FAILED: 500,
@@ -99,7 +104,7 @@ async function ensureActionReady(projectId, upTo) {
     auto.push('需求确认');
   }
   let outline = await outlines.loadOutline(projectId);
-  if (!outline || !(outline.pages || []).length) {
+  if (!outline || !(outline.pages || []).length || outline.input_fingerprint !== await inputFingerprint(projectId)) {
     await dialogue.generateOutlineForProject(projectId, null, '（按你的动作先自动补了一份大纲，可随时说调整或推翻重来）：');
     outline = await outlines.loadOutline(projectId);
     auto.push('生成大纲');
@@ -110,15 +115,15 @@ async function ensureActionReady(projectId, upTo) {
   }
   if (upTo === 'outline') return auto;
   let sel = await planner.getStyleSelection(projectId);
+  const latestBrief = await briefs.loadBrief(projectId);
+  if (sel && latestBrief?.page_count && sel.count !== latestBrief.page_count) sel = await planner.selectStyle(projectId,{family:sel.family,count:latestBrief.page_count});
   if (!sel) {
-    const b = await briefs.loadBrief(projectId);
-    const prefFamily = /插画|活泼|轻松/.test(String((b && b.style_preference) || '')) ? 'green-office-illustrated' : 'green-clean-business';
-    const count = (b && b.page_count) || (outline.pages || []).length || 8;
-    sel = await planner.selectStyle(projectId, { family: prefFamily, count });
-    auto.push('默认风格');
+    await projects.updateProjectMeta(projectId,{stage:'style',next_action:'请确认模板主题与页数'});
+    throw apiError('TEMPLATE_SELECTION_REQUIRED','请先确认模板主题与页数，再开始生成',{stage:'style',count:outline.pages.length});
   }
   if (upTo === 'style') return auto;
-  if (!(await planner.getPlan(projectId))) {
+  const currentPlan = await planner.getPlan(projectId);
+  if (!currentPlan || currentPlan.input_fingerprint !== await planFingerprint(projectId)) {
     await planner.buildPlan(projectId, {});
     auto.push('执行计划');
   }
@@ -140,7 +145,7 @@ route('GET', '/capabilities', async (ctx) => {
   sendJson(ctx.res, 200, {
     ok: true, version: VERSION, prototype: false,
     index_revision: index.index_revision,
-    workflows: ['WF-00', 'WF-01', 'WF-09'], // 随批次扩展
+    workflows: Array.from({length:11},(_,i)=>'WF-'+String(i).padStart(2,'0')),
     engines,
     data_dir: config().dataDir,
     limits: config().limits,
@@ -160,6 +165,8 @@ route('GET', '/styles', async (ctx) => {
 route('GET', '/engines', async (ctx) => {
   sendJson(ctx.res, 200, { ok: true, engines: await engineMatrix(ctx.query.get('force') === '1') });
 });
+route('GET','/render-config',async(ctx)=>{const render=config().render;sendJson(ctx.res,200,{ok:true,render:{...render,remote:{url:render.remote?.url||'',configured:!!render.remote?.token}}});});
+route('POST','/render-config',async(ctx)=>{const body=await readJsonBody(ctx.req);if(!['libreoffice','wps','powerpoint'].includes(body.engine))throw apiError('INVALID_OPERATION','渲染引擎无效');await updateConfig({render:{engine:body.engine,remote:{url:body.url??config().render.remote.url,token:body.token??config().render.remote.token}}});sendJson(ctx.res,200,{ok:true,engines:await engineMatrix(true)});});
 
 route('GET', '/models', async (ctx) => {
   const cfg = config().ollama;
@@ -237,8 +244,8 @@ route('GET', '/projects', async (ctx) => {
 });
 
 route('POST', '/projects/import', async (ctx) => {
-  const filename = decodeURIComponent(ctx.query.get('filename') || 'upload.pptx');
-  const title = decodeURIComponent(ctx.query.get('title') || '') || null;
+  const filename = ctx.query.get('filename') || 'upload.pptx';
+  const title = ctx.query.get('title') || null;
   const max = config().limits.uploadMaxBytes;
   const buf = await readBody(ctx.req, max);
   if (!buf.length) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '请求体为空：请以二进制流上传 PPTX'));
@@ -251,21 +258,23 @@ route('GET', '/projects/:id/state', async (ctx) => {
   const st = await projects.projectState(ctx.params.id);
   sendJson(ctx.res, 200, { ok: true, ...st });
 });
+route('GET','/projects/:id/snapshot',async(ctx)=>sendJson(ctx.res,200,{ok:true,...await projects.projectSnapshot(ctx.params.id)}));
+route('DELETE','/projects/:id',async(ctx)=>{ const result=await projects.deleteProject(ctx.params.id); invalidateIndex(); sendJson(ctx.res,200,{ok:true,...result}); });
 
 route('GET', '/projects/:id/versions', async (ctx) => {
   sendJson(ctx.res, 200, { ok: true, ...(await projects.listVersions(ctx.params.id)) });
 });
 
 route('GET', '/projects/:id/inspection', async (ctx) => {
-  const { dir } = await projects.loadProject(ctx.params.id);
-  const insp = await readJson(path.join(dir, 'inspection.json'), null);
+  const { dir, meta } = await projects.loadProject(ctx.params.id);
+  const version = ctx.query.get('version') || meta.version;
+  const insp = await readJson(path.join(dir, version ? 'inspection-'+version+'.json' : 'inspection.json'), null);
   if (!insp) return sendJson(ctx.res, 404, apiError('SOURCE_NOT_FOUND', '尚未生成结构检查', { project: ctx.params.id }));
   sendJson(ctx.res, 200, { ok: true, inspection: insp });
 });
 
 route('POST', '/projects/:id/reopen', async (ctx) => {
   const { meta } = await projects.loadProject(ctx.params.id);
-  if (meta.status !== 'archived') return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '项目不在已归档状态'));
   // 方案 WF-08：重新打开 = 复制为可编辑工作版本（当前先解除只读并记录 reopen 次数）
   const next = await projects.updateProjectMeta(ctx.params.id, {
     status: 'active',
@@ -313,7 +322,7 @@ route('POST', '/projects/:id/conversation/message', async (ctx) => {
   if (!text) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '消息内容不能为空'));
   const r = await dialogue.handleMessage(ctx.params.id, text, body.model_id || null, '用户');
   const st2 = await projects.projectState(ctx.params.id);
-  sendJson(ctx.res, 200, { ok: true, ...r, state_revision: st2.state_revision });
+  sendJson(ctx.res, r.error ? 503 : 200, { ok: !r.error, ...r, ...(r.error || {}), state_revision: st2.state_revision });
 });
 
 route('POST', '/projects/:id/outline/generate', async (ctx) => {
@@ -327,7 +336,7 @@ route('POST', '/projects/:id/outline/adjust', async (ctx) => {
   const instruction = String(body.instruction || body.text || '').trim();
   if (!instruction) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '调整指令不能为空'));
   const r = await dialogue.handleMessage(ctx.params.id, instruction, body.model_id || null, '用户');
-  sendJson(ctx.res, 200, { ok: true, ...r });
+  sendJson(ctx.res, r.error ? 503 : 200, { ok: !r.error, ...r, ...(r.error || {}) });
 });
 
 route('POST', '/projects/:id/outline/confirm', async (ctx) => {
@@ -348,12 +357,20 @@ route('POST', '/projects/:id/brief/confirm', async (ctx) => {
   sendJson(ctx.res, 200, { ok: true, brief: b });
 });
 
+route('POST','/projects/:id/model',async(ctx)=>{
+  const body=await readJsonBody(ctx.req);
+  const model=await resolveModel(body.model_id);
+  if(model.id!==body.model_id) throw apiError('INVALID_OPERATION','请选择已登记模型');
+  await projects.updateProjectMeta(ctx.params.id,{dialogue_model:model.id});
+  sendJson(ctx.res,200,{ok:true,model_id:model.id});
+});
+
 route('GET', '/projects/:id/brief', async (ctx) => {
   sendJson(ctx.res, 200, { ok: true, brief: await briefs.loadBrief(ctx.params.id) });
 });
 
 route('POST', '/projects/:id/materials', async (ctx) => {
-  const filename = decodeURIComponent(ctx.query.get('filename') || 'material.bin');
+  const filename = ctx.query.get('filename') || 'material.bin';
   const max = config().limits.uploadMaxBytes;
   const buf = await readBody(ctx.req, max);
   if (!buf.length) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '材料内容为空'));
@@ -374,7 +391,7 @@ route('DELETE', '/projects/:id/materials/:mid', async (ctx) => {
 /* ── WF-04：风格选择 / 自定义模板；WF-05：执行计划 ────────────── */
 
 route('POST', '/projects/:id/style/template', async (ctx) => {
-  const filename = decodeURIComponent(ctx.query.get('filename') || 'template.pptx');
+  const filename = ctx.query.get('filename') || 'template.pptx';
   const buf = await readBody(ctx.req, config().limits.uploadMaxBytes);
   if (!buf.length) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '模板内容为空'));
   const custom = await planner.importCustomTemplate(ctx.params.id, buf, filename);
@@ -388,7 +405,7 @@ route('GET', '/projects/:id/style/template', async (ctx) => {
 route('POST', '/projects/:id/style', async (ctx) => {
   const body = await readJsonBody(ctx.req);
   const auto = await ensureActionReady(ctx.params.id, 'outline'); // 0.3.4.1：WF-02/03 自动补齐，不再拦截
-  const sel = await planner.selectStyle(ctx.params.id, { family: body.family || 'green-clean-business', count: body.count, custom: body.custom });
+  const sel = await planner.selectStyle(ctx.params.id, { family: body.family, count: body.count, custom: body.custom });
   sendJson(ctx.res, 200, { ok: true, selection: sel, stage: 'pages', auto_chained: auto });
 });
 
@@ -404,6 +421,8 @@ route('POST', '/projects/:id/plan/reroll', async (ctx) => {
   const plan = await planner.getPlan(ctx.params.id);
   sendJson(ctx.res, 200, { ok: true, page, pageLayouts: plan ? planner.planToPageLayouts(plan) : null });
 });
+route('POST','/projects/:id/layout-preferences',async(ctx)=>{ const body=await readJsonBody(ctx.req); sendJson(ctx.res,200,{ok:true,preferences:await planner.addLayoutPreference(ctx.params.id,body.layout_id,body.n)}); });
+route('POST','/projects/:id/samples/confirm',async(ctx)=>sendJson(ctx.res,200,{ok:true,approval:await generate.confirmSamples(ctx.params.id,await readJsonBody(ctx.req))}));
 
 route('GET', '/projects/:id/plan', async (ctx) => {
   const plan = await planner.getPlan(ctx.params.id);
@@ -418,11 +437,20 @@ route('POST', '/projects/:id/generate', async (ctx) => {
   const r = await generate.startGenerate(ctx.params.id, { phase: body.phase === 'final' ? 'final' : 'sample' });
   sendJson(ctx.res, 200, { ok: true, ...r, auto_chained: auto });
 });
+route('POST','/projects/:id/render',async(ctx)=>sendJson(ctx.res,200,{ok:true,...await generate.startRender(ctx.params.id)}));
 
 route('GET', '/jobs/:jobId', async (ctx) => {
   const job = getJobById(ctx.params.jobId);
   if (!job) return sendJson(ctx.res, 404, apiError('SOURCE_NOT_FOUND', '任务不存在：' + ctx.params.jobId));
   sendJson(ctx.res, 200, { ok: true, job: jobViewOf(job) });
+});
+
+route('POST', '/jobs/:jobId/retry', async(ctx)=>{
+  const job=getJobById(ctx.params.jobId);
+  if(!job) throw apiError('SOURCE_NOT_FOUND','任务不存在');
+  if(!['failed','interrupted','cancelled'].includes(job.status)) throw apiError('INVALID_OPERATION','仅能重试失败、中断或取消的任务');
+  const r=job.type==='render' ? await generate.startRender(job.project_id) : (await ensureActionReady(job.project_id,'plan'),await generate.startGenerate(job.project_id,{phase:job.meta?.phase || 'sample'}));
+  sendJson(ctx.res,200,{ok:true,...r,retry_of:job.id});
 });
 
 route('POST', '/jobs/:jobId/cancel', async (ctx) => {
@@ -454,13 +482,14 @@ route('GET', '/projects/:id/shapes', async (ctx) => {
 
 route('POST', '/projects/:id/rollback', async (ctx) => {
   const body = await readJsonBody(ctx.req);
-  const res = await revise.rollbackVersion(ctx.params.id, String(body.label || ''));
+  const res = await revise.rollbackVersion(ctx.params.id, String(body.label || ''), {version:body.version,expected_sha256:body.expected_sha256});
   sendJson(ctx.res, 200, { ok: true, ...res });
 });
 
 route('POST', '/projects/:id/patch', async (ctx) => {
   const body = await readJsonBody(ctx.req);
-  const r = await revise.applyPatch(ctx.params.id, body.operations || [], { source: body.source || 'canvas', note: body.note || '' });
+  if (!body.expected_sha256 || !body.version) throw apiError('REQUIRED_FIELD_MISSING','编辑需要基准版本和 SHA，请重新加载画布');
+  const r = await revise.applyPatch(ctx.params.id, body.operations || [], { source: body.source || 'canvas', note: body.note || '',expected_sha256:body.expected_sha256,version:body.version });
   sendJson(ctx.res, 200, { ok: true, ...r });
 });
 
@@ -475,9 +504,16 @@ route('POST', '/projects/:id/export', async (ctx) => {
 route('GET', '/projects/:id/exports', async (ctx) => {
   sendJson(ctx.res, 200, { ok: true, exports: await exporter.exportsRegistry(ctx.params.id) });
 });
+route('GET','/exports/orphans',async(ctx)=>sendJson(ctx.res,200,{ok:true,exports:await exporter.orphanExports()}));
+route('DELETE','/exports/orphans/:id',async(ctx)=>sendJson(ctx.res,200,{ok:true,...await exporter.deleteOrphanExport(ctx.params.id)}));
+route('GET','/projects/:id/annotations',async(ctx)=>sendJson(ctx.res,200,{ok:true,annotations:await editor.annotations(ctx.params.id,ctx.query.get('version'))}));
+route('POST','/projects/:id/annotations',async(ctx)=>sendJson(ctx.res,200,{ok:true,annotation:await editor.addAnnotation(ctx.params.id,await readJsonBody(ctx.req))}));
+route('DELETE','/projects/:id/annotations/:aid',async(ctx)=>sendJson(ctx.res,200,{ok:true,...await editor.deleteAnnotation(ctx.params.id,ctx.params.aid)}));
+route('POST','/projects/:id/annotations/submit',async(ctx)=>sendJson(ctx.res,200,{ok:true,...await editor.submitAnnotations(ctx.params.id,await readJsonBody(ctx.req))}));
+route('POST','/projects/:id/compare',async(ctx)=>{const body=await readJsonBody(ctx.req);sendJson(ctx.res,200,{ok:true,...await editor.compareVersions(ctx.params.id,body.left,body.right)});});
 
 route('GET', '/projects/:id/download', async (ctx) => {
-  const dl = await exporter.downloadVersion(ctx.params.id);
+  const dl = await exporter.downloadVersion(ctx.params.id,{version:ctx.query.get('version'),export_id:ctx.query.get('export_id')});
   const stat = await fsp.stat(dl.path);
   ctx.res.writeHead(200, {
     'content-type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -532,6 +568,7 @@ route('POST', '/projects/:id/knowledge/facts', async (ctx) => {
 route('GET', '/projects/:id/knowledge/facts', async (ctx) => {
   sendJson(ctx.res, 200, { ok: true, facts: await knowledge.listMaterialFacts(ctx.params.id) });
 });
+route('POST','/projects/:id/knowledge/facts/analyze',async(ctx)=>{const body=await readJsonBody(ctx.req);sendJson(ctx.res,200,{ok:true,facts:await knowledge.analyzeMaterialFacts(ctx.params.id,body.model_id)});});
 
 route('POST', '/projects/:id/knowledge/facts/:factId/confirm', async (ctx) => {
   const body = await readJsonBody(ctx.req);
@@ -577,7 +614,11 @@ export async function handleApi(req, res, url, routePathArg) {
     const params = {};
     r.keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
     try {
-      await r.handler({ req, res, url, params, query: url.searchParams });
+      const context={ req, res, url, params, query: url.searchParams };
+      const mutatesProject=params.id && pathname.startsWith('/projects/') && ['POST','DELETE'].includes(r.method);
+      if(mutatesProject && /\/(brief|outline|style|materials|layout-preferences|conversation)(\/|$)/.test(pathname)) await cancelProjectJobs(params.id);
+      if(mutatesProject && !/\/(reset|generate|render)$/.test(pathname) && !(r.method==='DELETE' && /^\/projects\/[^/]+$/.test(pathname))) await withProjectLock(params.id,()=>r.handler(context));
+      else await r.handler(context);
     } catch (e) {
       fail(res, e);
     }

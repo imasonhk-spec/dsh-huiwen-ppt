@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { projectDir, loadProject, updateProjectMeta } from './projects.js';
 import { readJson, writeJson, sha256File, nowIso, apiError } from './util.js';
 import { withProjectLock } from './workflow.js';
+import { currentDraftReview, requirementVerificationIssue } from './quality.js';
 import { invalidateIndex } from './index-builder.js';
 export async function exportsRegistry(id) { return readJson(path.join(projectDir(id),'exports.json'),[]); }
 export async function exportProject(id,{note=''}={}) {
@@ -14,18 +15,25 @@ export async function exportProject(id,{note=''}={}) {
     if(!meta.version || !meta.source_name) throw apiError('INVALID_OPERATION','尚无可导出版本');
     const src=path.join(projectDir(id),'versions',meta.source_name),sha=await sha256File(src);
     if(sha!==meta.source_sha256) throw apiError('SOURCE_HASH_MISMATCH','当前文件发生变化');
+    const report=await readJson(path.join(projectDir(id),meta.latest_report||'report-'+meta.version+'.json'),null);
+    let document_state='draft';
+    if(report?.phase==='final'&&report.approved_sample?.sha256===sha) {
+      const review=await currentDraftReview(id,meta);
+      if(!requirementVerificationIssue(review,{...report.approved_sample.requirement_review,version:meta.version,sha256:sha})) document_state='final';
+    }
     const list=await exportsRegistry(id);
-    const previous=list.find((e)=>e.version===meta.version && e.sha256===sha && fs.existsSync(path.join(config().dataDir,e.file)));
+    const previous=list.find((e)=>e.version===meta.version && e.sha256===sha && e.document_state===document_state && fs.existsSync(path.join(config().dataDir,e.file)));
     let entry=previous;
     if(!entry) {
-      const exportId='exp-'+randomUUID(),downloadName=(meta.title || id).replace(/[\\/:*?"<>|]+/g,'_').slice(0,60)+'_'+meta.version+'.pptx';
+      const exportId='exp-'+randomUUID(),downloadName=(meta.title || id).replace(/[\\/:*?"<>|]+/g,'_').slice(0,60)+(document_state==='draft'?'_草稿_':'_')+meta.version+'.pptx';
       const rel=path.join('exports',id,exportId,downloadName),target=path.join(config().dataDir,rel);
       await fsp.mkdir(path.dirname(target),{recursive:true}); await fsp.copyFile(src,target,fs.constants.COPYFILE_EXCL);
-      entry={id:exportId,version:meta.version,file:rel,download_name:downloadName,sha256:sha,note,exported_at:nowIso()};
+      entry={id:exportId,version:meta.version,file:rel,download_name:downloadName,sha256:sha,document_state,note,exported_at:nowIso()};
       list.push(entry); await writeJson(path.join(projectDir(id),'exports.json'),list);
     }
-    await updateProjectMeta(id,{status:'archived',archived_at:nowIso(),last_export:entry.id,next_action:'重新打开继续制作'});
-    invalidateIndex(); return {...entry,archived:true,deduplicated:!!previous};
+    if(document_state==='final') await updateProjectMeta(id,{status:'archived',archived_at:nowIso(),last_export:entry.id,next_action:'重新打开继续制作'});
+    else await updateProjectMeta(id,{last_draft_export:entry.id,next_action:'草稿已下载，待核实与确认定稿'});
+    invalidateIndex(); return {...entry,document_state,archived:document_state==='final',deduplicated:!!previous};
   });
 }
 export async function downloadVersion(id,{version,export_id}={}) {
@@ -41,7 +49,10 @@ export async function downloadVersion(id,{version,export_id}={}) {
   if(!/^v\d{4,}$/.test(label || '')) throw apiError('INVALID_OPERATION','没有有效的版本');
   const file=path.join(projectDir(id),'versions','revision-'+String(Number(label.slice(1))).padStart(3,'0')+'.pptx');
   if(!fs.existsSync(file)) throw apiError('SOURCE_NOT_FOUND','版本文件不存在');
-  return {path:file,name:(meta.title || id).replace(/[\\/:*?"<>|]+/g,'_')+'_'+label+'.pptx'};
+  if(label===meta.version&&await sha256File(file)!==meta.source_sha256) throw apiError('SOURCE_HASH_MISMATCH','当前草稿文件已变化');
+  const report=await readJson(path.join(projectDir(id),'report-'+label+'.json'),null);
+  const suffix=report?.phase==='final'&&report.approved_sample?'_':'_草稿_';
+  return {path:file,name:(meta.title || id).replace(/[\\/:*?"<>|]+/g,'_')+suffix+label+'.pptx'};
 }
 export async function orphanExports() {
   const root=path.join(config().dataDir,'exports'); if(!fs.existsSync(root)) return [];

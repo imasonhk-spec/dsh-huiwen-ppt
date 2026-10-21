@@ -1,7 +1,7 @@
-# 脱敏报告 · dsh-huiwen-ppt 0.4.9+botbudget.2
+# 脱敏报告 · dsh-huiwen-ppt 0.4.9-botquality.20261017.23+topicfix.20261021.1
 
 - 来源: `/home/lgsj/.dsh/profiles/web/node_modules/@local/huiwen-ppt`（8.6 线上活副本）
-- 文件数: 90
+- 文件数: 92
 
 ## 密钥/Token/密码: 0 个文件
 

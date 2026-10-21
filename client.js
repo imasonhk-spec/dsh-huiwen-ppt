@@ -110,6 +110,9 @@ window.__ModuleLoader__.load({
       '.hp-navconv-menu button:hover { background: var(--dsw-alias-interactive-bg-hover, #f1f5f9); }',
       '.hp-navconv-menu button.danger { color: #dc2626; }',
       '.hp-navconv-menu button.danger:hover { background: rgba(220,38,38,.08); }',
+      /* F4 行内重命名（复用 hp-input 观感，压缩到侧栏一行高度） */
+      '.hp-navconv-edit { gap: 4px; padding: 3px 4px; }',
+      '.hp-navconv-edit .hp-rename-input { flex: 1 1 auto; min-width: 0; width: auto; height: 24px; padding: 0 6px; font-size: 12px; }',
       '.hp-navsub-empty { padding: 4px 8px; font-size: 11.5px; line-height: 1.6; color: var(--dsw-alias-label-tertiary, #94a3b8); }',
       /* ── 主区 ── */
       '.hp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }',
@@ -670,7 +673,9 @@ window.__ModuleLoader__.load({
     /* ════════ 视图二：模板库 ════════ */
     function TemplateLibrary({ data, onNav, onToast, targetProjectId, allProjects, onReloadIndex }) {
       const [kw, setKw] = useState('');
-      const [family, setFamily] = useState('all');
+      /* F3 两级导航：category=null 为一级（只出两张风格分类卡），否则为二级（该分类内全部真实版式）。
+         不挪用/复用 family，避免出现第二个真相源。 */
+      const [category, setCategory] = useState(null);
       const [relation, setRelation] = useState('all');
       const [approval, setApproval] = useState('all');
       const [packFirst, setPackFirst] = useState(true);
@@ -751,7 +756,7 @@ window.__ModuleLoader__.load({
 
       const list = useMemo(() => {
         let arr = data.layouts.slice();
-        if (family !== 'all') arr = arr.filter((l) => l.family === family);
+        if (category) arr = arr.filter((l) => l.family === category);
         if (relation !== 'all') arr = arr.filter((l) => l.relation === relation || (l.tags || []).includes(relation));
         if (approval !== 'all') arr = arr.filter((l) => l.approval === approval);
         if (kw.trim()) {
@@ -760,7 +765,26 @@ window.__ModuleLoader__.load({
         }
         if (packFirst) arr.sort((a, b) => (b.pack === 'reference_pack') - (a.pack === 'reference_pack'));
         return arr;
-      }, [data, kw, family, relation, approval, packFirst]);
+      }, [data, kw, category, relation, approval, packFirst]);
+
+      /* ── F3 两级导航 ─────────────────────────────────────────────────────────
+         一级只能显式渲染这两个 family ID：data.styles 可能 >2 条（index-builder.js:269
+         会为已批准自定义模板追加 styles 条目），禁止全量遍历 data.styles 当分类列表。
+         计数读真实索引（data.styles[].layouts_count，回退 data.layouts 实算），禁止写死。 */
+      const CATEGORY_IDS = ['green-clean-business', 'green-office-illustrated'];
+      const categoryCount = (id) => {
+        const st = (data.styles || []).find((s) => s.id === id);
+        if (st && typeof st.layouts_count === 'number') return st.layouts_count;
+        return data.layouts.filter((l) => l.family === id).length;
+      };
+      /* 进/出/换分类时显式重置筛选与预览态。
+         严格不动：targetPid(681) 目标项目、added(680) 已加入计数、folder 状态(685-690)。 */
+      const resetCategoryScope = () => {
+        setKw(''); setRelation('all'); setApproval('all'); setPackFirst(true);
+        setDetail(null); setCompare([]); setShowCompare(false);
+      };
+      const enterCategory = (id) => { if (id === category) return; resetCategoryScope(); setCategory(id); };
+      const leaveCategory = () => { resetCategoryScope(); setCategory(null); };
 
       const addToProject = async (lay) => {
         if (!targetPid) { onToast('请先选择目标项目'); return; }
@@ -798,36 +822,59 @@ window.__ModuleLoader__.load({
             h(Btn, { kind: 'pri', sm: true, onClick: (e) => { e.stopPropagation(); addToProject(lay); } }, added[lay.id] ? '再加入 · 已加 ' + added[lay.id] + ' 次' : '加入项目'),
             h(Btn, { kind: 'ghost', sm: true, onClick: (e) => { e.stopPropagation(); toggleCompare(lay); } }, compare.find((x) => x.id === lay.id) ? '移出比较' : '比较'))));
 
+      /* 一级分类卡：复用 FAMILY_NAME(52) + FAMILY_PREVIEW(921)，计数来自真实索引 */
+      const categoryCard = (id) => {
+        const n = categoryCount(id);
+        const st = (data.styles || []).find((s) => s.id === id);
+        return h('div', { key: id, className: 'hp-tcard', onClick: () => enterCategory(id) },
+          h('div', { className: 'hp-tprev' },
+            FAMILY_PREVIEW[id] ? h('img', { src: img(FAMILY_PREVIEW[id]), alt: FAMILY_NAME[id] || id, loading: 'lazy' }) : null),
+          h('div', { className: 'hp-tbody' },
+            h('div', { className: 'hp-row', style: { justifyContent: 'space-between', marginBottom: 4 } },
+              h('span', { className: 'hp-tid' }, id),
+              h(Chip, null, n + ' 个版式')),
+            h('div', { style: { fontSize: 15, fontWeight: 700, marginBottom: 6 } }, FAMILY_NAME[id] || id),
+            st && st.desc ? h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary,#94a3b8)', marginBottom: 10 } }, st.desc) : null,
+            h('div', { className: 'hp-row', style: { gap: 6 } },
+              h(Btn, { kind: 'pri', sm: true, onClick: (e) => { e.stopPropagation(); enterCategory(id); } }, '进入该风格 →'))));
+      };
+
       return h('div', { className: 'hp-scroll' },
         h('div', { className: 'hp-row', style: { justifyContent: 'space-between', marginBottom: 14 } },
           h('div', null,
-            h('h1', { className: 'hp-h1' }, '模板库'),
-            h('p', { className: 'hp-sub' }, '模板库是生产入口：绿色简洁商务优先 8 页参考图构图包，14 页通用版式兜底')),
+            /* 显式「返回模板库」控件：侧栏 templates 项(2564-2567)对 templates 是 no-op，不能靠再点侧栏 */
+            category ? h('div', { style: { marginBottom: 8 } },
+              h(Btn, { kind: 'ghost', sm: true, onClick: leaveCategory }, '← 返回模板库')) : null,
+            h('h1', { className: 'hp-h1' }, category ? (FAMILY_NAME[category] || category) : '模板库'),
+            h('p', { className: 'hp-sub' }, category
+              ? ('共 ' + categoryCount(category) + ' 个真实版式' + (list.length !== categoryCount(category) ? '，当前筛选命中 ' + list.length + ' 个' : ''))
+              : '模板库是生产入口：先选择风格分类，再进入查看该分类全部真实版式')),
           h('div', { className: 'hp-row' },
             added.count ? h(Chip, null, '已加入项目 ' + added.count + ' 页') : null,
             h(Btn, { onClick: () => { setShowFolders(true); loadFolders(); } }, '🗂 模板包管理'),
             h(Btn, { kind: 'pri', onClick: () => onNav('studio') }, '✨ 新对话'))),
 
-        h('div', { className: 'hp-card', style: { padding: '12px 14px', marginBottom: 16 } },
-          h('label', { className: 'hp-row', style: { gap: 8, marginBottom: 8 } }, '加入目标项目', h('select', { className: 'hp-select', value: targetPid, onChange: (e) => setTargetPid(e.target.value) }, h('option', { value: '' }, '请选择项目'), (allProjects || []).map((p) => h('option', { key: p.id, value: p.id }, p.title)))),
-          h('div', { className: 'hp-row', style: { gap: 10 } },
-            h('input', { className: 'hp-input', style: { width: 240 }, placeholder: '搜索版式 ID / 名称 / 标签…', value: kw, onChange: (e) => setKw(e.target.value) }),
-            h('select', { className: 'hp-select', style: { width: 150 }, value: family, onChange: (e) => setFamily(e.target.value) },
-              h('option', { value: 'all' }, '全部风格分支'),
-              h('option', { value: 'green-clean-business' }, '绿色简洁商务'),
-              h('option', { value: 'green-office-illustrated' }, '绿色办公插画')),
-            h('select', { className: 'hp-select', style: { width: 130 }, value: relation, onChange: (e) => setRelation(e.target.value) },
-              relations.map((r) => h('option', { key: r, value: r }, r === 'all' ? '全部版式关系' : r))),
-            h('select', { className: 'hp-select', style: { width: 120 }, value: approval, onChange: (e) => setApproval(e.target.value) },
-              h('option', { value: 'all' }, '全部状态'),
-              h('option', { value: 'approved' }, '已批准'),
-              h('option', { value: 'pending' }, '待确认')),
-            h('label', { className: 'hp-row', style: { gap: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#475569)', cursor: 'pointer' } },
-              h('input', { type: 'checkbox', checked: packFirst, onChange: (e) => setPackFirst(e.target.checked) }),
-              '已批准的可生成版式'),
-            h('span', { className: 'hp-tid' }, list.length + ' 个版式'))),
-
-        list.length ? h('div', { className: 'hp-tgrid' }, list.map(card)) : h(EmptyHint, { icon: '🔍', text: '没有匹配的版式，请调整筛选条件' }),
+        category ? h(React.Fragment, null,
+          h('div', { className: 'hp-card', style: { padding: '12px 14px', marginBottom: 16 } },
+            h('label', { className: 'hp-row', style: { gap: 8, marginBottom: 8 } }, '加入目标项目', h('select', { className: 'hp-select', value: targetPid, onChange: (e) => setTargetPid(e.target.value) }, h('option', { value: '' }, '请选择项目'), (allProjects || []).map((p) => h('option', { key: p.id, value: p.id }, p.title)))),
+            h('div', { className: 'hp-row', style: { gap: 10 } },
+              h('input', { className: 'hp-input', style: { width: 240 }, placeholder: '搜索版式 ID / 名称 / 标签…', value: kw, onChange: (e) => setKw(e.target.value) }),
+              h('select', { className: 'hp-select', style: { width: 130 }, value: relation, onChange: (e) => setRelation(e.target.value) },
+                relations.map((r) => h('option', { key: r, value: r }, r === 'all' ? '全部版式关系' : r))),
+              h('select', { className: 'hp-select', style: { width: 120 }, value: approval, onChange: (e) => setApproval(e.target.value) },
+                h('option', { value: 'all' }, '全部状态'),
+                h('option', { value: 'approved' }, '已批准'),
+                h('option', { value: 'pending' }, '待确认')),
+              h('label', { className: 'hp-row', style: { gap: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#475569)', cursor: 'pointer' } },
+                h('input', { type: 'checkbox', checked: packFirst, onChange: (e) => setPackFirst(e.target.checked) }),
+                '已批准的可生成版式'),
+              h('span', { className: 'hp-tid' }, list.length + ' 个版式'))),
+          list.length ? h('div', { className: 'hp-tgrid' }, list.map(card)) : h(EmptyHint, { icon: '🔍', text: '没有匹配的版式，请调整筛选条件' }))
+          : h(React.Fragment, null,
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, maxWidth: 660 } }, CATEGORY_IDS.map(categoryCard)),
+            h('div', { className: 'hp-note', style: { marginTop: 16 } },
+              h('span', null, 'ⓘ'),
+              h('span', null, '一级只展示两个风格分类；进入分类后可查看该分类全部真实版式，并使用搜索、关系/状态筛选、预览、比较与「加入项目」。'))),
 
         detail ? h(Drawer, {
           title: detail.name, sub: detail.id + ' · ' + FAMILY_NAME[detail.family],
@@ -923,7 +970,7 @@ window.__ModuleLoader__.load({
     /* 场景大纲库：按关键词命中，未命中走通用 */
     const MAT_ICONS = { docx: '📝', doc: '📝', pdf: '📕', pptx: '📊', ppt: '📊', xlsx: '📈', xls: '📈', txt: '📄', md: '📄' };
 
-    function ConversationStudio({ data, onNav, onToast, onProjectArchived, onReloadProjects, historyMode, activeConv, activeConvId, onConvSync, onRequestNewConversation, backend }) {
+    function ConversationStudio({ data, onNav, onToast, onProjectArchived, onReloadProjects, historyMode, activeConv, activeConvId, onConvSync, onRequestNewConversation, onRegisterRenameFetch, backend }) {
       /* 真实后端连通即真实模式：对话/材料/大纲/生成/导出/修订全走服务端；后端不可达如实报错。
          historyMode=true 表示「历史对话」列表来自真实后端项目（与 isReal 同源，保留兼容）。 */
       const isReal = !!(backend && backend.mode === 'real');
@@ -979,9 +1026,43 @@ window.__ModuleLoader__.load({
         const controller = new AbortController(); requestControllers.current.add(controller);
         try {
           const response = await fetch(url, { ...options, signal: controller.signal });
-          return { ok: response.ok, status: response.status, json: async () => { try { const result = await response.json(); if (stale()) throw staleError(); return result; } finally { requestControllers.current.delete(controller); } } };
+          return { ok: response.ok, status: response.status, json: async () => {
+            try {
+              let result;
+              try { result = await response.json(); }
+              catch (e) {
+                if (stale()) throw staleError();
+                if (e.name !== 'SyntaxError') throw e;
+                throw new Error('HTTP ' + response.status + '：服务返回了无效响应，未能确认操作结果。请先核对当前项目或恢复原任务进度，再决定是否重试。');
+              }
+              if (stale()) throw staleError();
+              return result;
+            } finally { requestControllers.current.delete(controller); }
+          } };
         } catch (e) { requestControllers.current.delete(controller); if (stale()) throw staleError(); throw e; }
       };
+      /* F4：把带 requestEpoch/activeRequestId 守卫的 projectFetch 注册给父级，
+         供侧栏「更多 → 重命名」提交 PATCH /projects/:id/title（禁止裸 fetch，以免丢 STALE_PROJECT 守卫）。 */
+      const projectFetchRef = useRef(projectFetch);
+      useEffect(() => { projectFetchRef.current = projectFetch; });
+      useEffect(() => {
+        if (!onRegisterRenameFetch) return undefined;
+        onRegisterRenameFetch(async (id, title) => {
+          const res = await projectFetchRef.current(API + '/api/projects/' + encodeURIComponent(id) + '/title', {
+            method: 'PATCH', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ title }), credentials: 'same-origin',
+          });
+          let j = null;
+          try { j = await res.json(); } catch (e) { j = null; }
+          if (!res.ok || !j || !j.ok) {
+            const err = new Error((j && j.message) || ('HTTP ' + res.status));
+            err.status = res.status; err.code = (j && j.code) || null;
+            throw err;
+          }
+          return j.project || null;
+        });
+        return () => { onRegisterRenameFetch(null); };
+      }, [onRegisterRenameFetch]);
       useEffect(() => {
         let alive = true;
         fetch(API + '/api/models', { credentials: 'same-origin' })
@@ -1062,7 +1143,7 @@ window.__ModuleLoader__.load({
           const snapshotResponse = await projectFetch(API + '/api/projects/' + encodeURIComponent(id) + '/snapshot', { credentials: 'same-origin' });
           const snap = await snapshotResponse.json();
           if (!snapshotResponse.ok || !snap.ok) throw new Error(snap.message || '项目快照读取失败');
-          const count = snap.selection?.count || snap.brief?.page_count || snap.outline?.pages?.length || null;
+          const count = (snap.outline?.approvals?.outline && snap.outline?.pages?.length) || snap.selection?.count || snap.brief?.page_count || snap.outline?.pages?.length || null;
           const family = snap.selection?.family || 'green-clean-business';
           setCtx({ ...DEFAULT_CTX, topic: snap.meta.title || j.title || title || '', materials: (snap.materials || []).map((m) => ({ ...m, ext: m.type, icon: MAT_ICONS[m.type] || '📎', pages: m.text_chars ? m.text_chars + ' 字' : m.size + ' 字节', summary: m.role === 'visual-reference' ? '图片版式参考，不作为正文依据' : m.extraction_error || '正文已完整提取' })), outline: (snap.outline?.pages || []).map((p) => ({ n: p.n, title: p.title, rel: p.relation })), family, count, customStyle: snap.custom_style, pageLayouts: (snap.plan?.pages || []).map((p) => ({ n: p.n, title: p.title, rel: p.relation, alt: p.alt, layoutId: p.layout_id })), version: snap.meta.version, sha: snap.meta.source_sha256, shaFull: snap.meta.source_sha256, renders: snap.renders || [] });
           setSel({ family, count }); setModelId(snap.meta.dialogue_model || '');
@@ -1173,7 +1254,7 @@ window.__ModuleLoader__.load({
             if (job.status === 'done') { setActiveJobId(null); finishGenerateReal(job.result); return; }
             if (['failed','cancelled','interrupted'].includes(job.status)) { setActiveJobId(null); setBusy(false); setStage(ctx.version ? 'done' : 'pages'); setGenStep(-1); pushAi([say('生成未完成：' + (job.error?.message || job.status) + '。可重试，已有版本保留。')]); return; }
             jobTimerRef.current = setTimeout(tick, 1500);
-          } catch (e) { if (e?.code === 'STALE_PROJECT') return; if (epoch !== requestEpoch.current) return; setBusy(false); pushAi([say('进度查询失败：' + e.message + '。可恢复查询原任务。')]); }
+          } catch (e) { if (e?.code === 'STALE_PROJECT') return; if (epoch !== requestEpoch.current) return; setBusy(false); setGenStep(-1); setJobProgress((job)=>({...job,status:'unknown'})); pushAi([say('进度查询失败：' + e.message + '。可恢复查询原任务。')]); }
         };
         tick();
       };
@@ -1383,13 +1464,15 @@ window.__ModuleLoader__.load({
       const doGenerate = async (rawText) => {
         if (!isReal) { onToast('后端未连接'); return; }
         if (!projectId) { pushAi([say('尚未创建项目，请点「🆕 新对话」开始。')]); return; }
+        const epoch = requestEpoch.current;
         setBusy(true);
         try {
           pushAi([say('收到，我会先整理大纲；确认模板主题后，再展开逐页正文并生成 PPT。')]);
           const ready = await ensureReadyForGenerate(rawText);
-          if (!ready) return;
+          if (epoch !== requestEpoch.current) return;
+          if (!ready) { setBusy(false); return; }
           await startGenerateReal(); // 内部自带 busy 管理与 job 轮询
-        } catch (e) { if (e?.code === 'STALE_PROJECT') return;
+        } catch (e) { if (e?.code === 'STALE_PROJECT' || epoch !== requestEpoch.current) return;
           setBusy(false);
           pushAi([say('生成未启动：' + (e && e.message ? e.message : e) + '。可重试，或先说「出大纲」看结构。')]);
         }
@@ -1505,7 +1588,7 @@ window.__ModuleLoader__.load({
           const r = await projectFetch(API + '/api/projects/' + encodeURIComponent(projectId) + '/snapshot', { credentials: 'same-origin' });
           const snap = await r.json();
           if (!r.ok || !snap?.ok) throw new Error(snap?.message || ('HTTP ' + r.status));
-          const count = snap.selection?.count || snap.brief?.page_count || snap.outline?.pages?.length || null;
+          const count = (snap.outline?.approvals?.outline && snap.outline?.pages?.length) || snap.selection?.count || snap.brief?.page_count || snap.outline?.pages?.length || null;
           setSel((s) => ({ ...s, count })); setCtx((c) => ({ ...c, topic: snap.meta.title, count }));
         } catch (e) {
           if (e?.code === 'STALE_PROJECT') throw e;
@@ -1531,6 +1614,9 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ note: '随大纲确认（对话页）' }), credentials: 'same-origin',
           }).catch(() => {});
           setBusy(false);
+          const count = j.outline.pages.length;
+          setSel((s) => ({ ...s, count }));
+          setCtx((c) => ({ ...c, count }));
           setStage('style');
           pushAi([say('大纲确认 ✅。接下来选风格与页数。'), { id: nid(), role: 'ai', kind: 'style', payload: {} }]);
         } catch (e) { if (e?.code === 'STALE_PROJECT') return;
@@ -2006,7 +2092,7 @@ window.__ModuleLoader__.load({
           })));
 
       const paneGenerating = h('div', null,
-        paneHead('正在生成', '构建与渲染进行中 · 完成自动出结果卡'),
+        paneHead(jobProgress?.status === 'unknown' ? '任务状态待确认' : '正在生成', jobProgress?.status === 'unknown' ? '进度查询中断，请恢复原任务进度' : '构建与渲染进行中 · 完成自动出结果卡'),
         h('div', { className: 'hp-card', style: { padding: '18px 20px', maxWidth: 560 } },
           GEN_STEPS.map((label, i) => {
             const done = genStep > i;
@@ -2018,7 +2104,7 @@ window.__ModuleLoader__.load({
                 run ? h('div', { className: 'hp-progress fast', style: { marginTop: 6 } },
                   h('i', {})) : null));
           }),
-          jobProgress ? h('div', null, '任务状态：' + jobProgress.status + ' · 进度 ' + jobProgress.progress + '% · 已用 ' + Math.round((Date.now() - Date.parse(jobProgress.created_at)) / 1000) + ' 秒') : null,
+          jobProgress ? h('div', null, jobProgress.status === 'unknown' ? '任务状态：待确认' : '任务状态：' + jobProgress.status + ' · 进度 ' + jobProgress.progress + '% · 已用 ' + Math.round((Date.now() - Date.parse(jobProgress.created_at)) / 1000) + ' 秒') : null,
           activeJobId ? h('div', { className: 'hp-row', style: { gap: 8 } },
             h(Btn, { sm: true, onClick: async () => { try { const r = await projectFetch(API + '/api/jobs/' + activeJobId + '/cancel', { method: 'POST', credentials: 'same-origin' }); const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.message || '取消失败'); onToast('已请求取消，等待任务停止'); pollJob(activeJobId); } catch (e) { onToast('取消失败：' + e.message); } } }, '取消任务'),
             h(Btn, { sm: true, onClick: () => pollJob(activeJobId) }, '恢复任务进度')) : null,
@@ -2396,6 +2482,12 @@ window.__ModuleLoader__.load({
       const [activeConv, setActiveConv] = useState(null);
       const [localConvs, setLocalConvs] = useState([]);
       const [convOverlay, setConvOverlay] = useState(() => readConvOverlay());
+      /* F4 会话重命名（= 项目重命名）：行内编辑态；提交走子组件注册的 projectFetch 以继承 STALE_PROJECT 守卫 */
+      const [renameId, setRenameId] = useState(null);
+      const [renameDraft, setRenameDraft] = useState('');
+      const [renameBusy, setRenameBusy] = useState(false);
+      const renameFetchRef = useRef(null);
+      const onRegisterRenameFetch = useCallback((fn) => { renameFetchRef.current = fn; }, []);
 
       useEffect(() => {
         let alive = true;
@@ -2523,6 +2615,44 @@ window.__ModuleLoader__.load({
         if (activeConv && activeConv.id === c.id) setActiveConv(null);
         onToast('已删除项目及关联导出「' + c.title + '」'); onReloadProjects();
       }, [onToast, activeConv, onReloadProjects]);
+      /* F4：进入/退出行内编辑 */
+      const startConvRename = useCallback((c) => {
+        setConvMenuId(null); setConfirmDelId(null);
+        setRenameDraft(c.title || ''); setRenameId(c.id);
+      }, []);
+      const cancelConvRename = useCallback(() => { setRenameId(null); setRenameDraft(''); setRenameBusy(false); }, []);
+      /* F4 提交：本地校验 1..80 → PATCH → 只同步 activeConv.title（nonce 不变，故 :1128 早退，不触发整页重载）
+         成功才改显示名；任何失败都退出编辑态并保留原名称（不假报成功），不触碰制作主题/正文/封面/导出产物。 */
+      const submitConvRename = useCallback(async (c) => {
+        const name = String(renameDraft || '').trim();
+        if (!name) { onToast('名称不能为空'); return; }
+        if (name.length > 80) { onToast('名称不能超过 80 个字符'); return; }
+        if (name === String(c.title || '').trim()) { cancelConvRename(); return; }
+        setRenameBusy(true);
+        try {
+          let title = name;
+          if (c.real) {
+            const submit = renameFetchRef.current;
+            if (!submit) throw new Error('后端未就绪，请刷新页面后重试');
+            const proj = await submit(c.id, name);
+            if (proj && proj.title) title = proj.title;
+          } else {
+            setLocalConvs((prev) => prev.map((x) => (x.id === c.id ? { ...x, title } : x)));
+          }
+          setActiveConv((prev) => (prev && prev.id === c.id ? { ...prev, title } : prev));
+          if (c.real && onReloadProjects) await onReloadProjects();
+          setRenameId(null); setRenameDraft('');
+          onToast('已重命名为「' + title + '」');
+        } catch (e) {
+          setRenameId(null); setRenameDraft('');
+          if (e && e.code === 'STALE_PROJECT') return;
+          const code = e && e.code;
+          const msg = code === 'STATE_REVISION_CONFLICT' ? '项目已被其他操作更新，请刷新后重试'
+            : code === 'SOURCE_NOT_FOUND' ? '项目不存在（可能已被删除）'
+            : (e && e.message ? e.message : '未知错误');
+          onToast('重命名失败：' + msg);
+        } finally { setRenameBusy(false); }
+      }, [renameDraft, onToast, onReloadProjects, cancelConvRename]);
       /* 进入/离开对话制作时自动开合二级目录（点一级项仍可手动再折叠） */
       useEffect(() => { setNavSubOpen(view === 'studio'); }, [view]);
 
@@ -2583,22 +2713,34 @@ window.__ModuleLoader__.load({
                     ? h('div', { className: 'hp-navconvs' }, convList.map((c) => {
                         const menuOn = convMenuId === c.id;
                         const isOn = !!(activeConv && !activeConv.fresh && activeConv.id === c.id);
+                        const renaming = renameId === c.id;
                         return h('div', { key: c.id, className: 'hp-navconv-item' },
-                          h('div', { className: 'hp-navconv' + (isOn ? ' on' : '') },
-                            h('button', {
-                              type: 'button', className: 'hp-navconv-main',
-                              title: c.title + (c.real ? '（真实项目）' : '（本会话）'),
-                              onClick: () => openConversation(c),
-                            },
-                              h('span', { className: 'ttl' }, (c.pinned ? '📌 ' : '') + c.title),
-                              h('span', { className: 'meta' }, (c.archived ? '已归档 · ' : '') + (c.real ? '项目 · ' : '本会话 · ') + (c.updated || ''))),
-                            h('button', {
-                              type: 'button', className: 'hp-navconv-more' + (menuOn ? ' on' : ''),
-                              'aria-label': '更多操作', 'aria-expanded': menuOn ? 'true' : 'false',
-                              title: '更多操作：置顶 / 归档 / 删除',
-                              onClick: () => { setConvMenuId(menuOn ? null : c.id); setConfirmDelId(null); },
-                            }, '⋯')),
-                          menuOn ? h('div', { className: 'hp-navconv-menu', role: 'menu' },
+                          renaming
+                            ? h('div', { className: 'hp-navconv hp-navconv-edit' },
+                                h('input', {
+                                  className: 'hp-input hp-rename-input', value: renameDraft, autoFocus: true, maxLength: 80,
+                                  'aria-label': '会话名称', placeholder: '输入新名称',
+                                  onChange: (e) => setRenameDraft(e.target.value),
+                                  onKeyDown: (e) => { if (e.key === 'Enter') submitConvRename(c); else if (e.key === 'Escape') cancelConvRename(); },
+                                }),
+                                h(Btn, { sm: true, kind: 'pri', disabled: renameBusy || !String(renameDraft).trim(), onClick: () => submitConvRename(c) }, renameBusy ? '…' : '确定'),
+                                h(Btn, { sm: true, kind: 'ghost', disabled: renameBusy, onClick: cancelConvRename }, '取消'))
+                            : h('div', { className: 'hp-navconv' + (isOn ? ' on' : '') },
+                                h('button', {
+                                  type: 'button', className: 'hp-navconv-main',
+                                  title: c.title + (c.real ? '（真实项目）' : '（本会话）'),
+                                  onClick: () => openConversation(c),
+                                },
+                                  h('span', { className: 'ttl' }, (c.pinned ? '📌 ' : '') + c.title),
+                                  h('span', { className: 'meta' }, (c.archived ? '已归档 · ' : '') + (c.real ? '项目 · ' : '本会话 · ') + (c.updated || ''))),
+                                h('button', {
+                                  type: 'button', className: 'hp-navconv-more' + (menuOn ? ' on' : ''),
+                                  'aria-label': '更多操作', 'aria-expanded': menuOn ? 'true' : 'false',
+                                  title: '更多操作：重命名 / 置顶 / 归档 / 删除',
+                                  onClick: () => { setConvMenuId(menuOn ? null : c.id); setConfirmDelId(null); },
+                                }, '⋯')),
+                          !renaming && menuOn ? h('div', { className: 'hp-navconv-menu', role: 'menu' },
+                            h('button', { type: 'button', role: 'menuitem', onClick: () => startConvRename(c) }, '✏️ 重命名'),
                             h('button', { type: 'button', role: 'menuitem', onClick: () => toggleConvPin(c) }, c.pinned ? '📌 取消置顶' : '📌 置顶'),
                             h('button', { type: 'button', role: 'menuitem', onClick: () => toggleConvArchive(c) }, c.archived ? '↩ 重新打开' : '📦 归档'),
                             h('button', {
@@ -2643,6 +2785,7 @@ window.__ModuleLoader__.load({
               activeConvId: activeConv && activeConv.id ? activeConv.id : null,
               onConvSync,
               onRequestNewConversation: onNewConversation,
+              onRegisterRenameFetch,
             })) : null,
           data ? h('div', { style: { display: view === 'templates' ? 'block' : 'none', height: '100%', overflow: 'hidden' } },
             h('div', { style: { height: '100%', display: 'flex', flexDirection: 'column' } },

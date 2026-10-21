@@ -299,6 +299,32 @@ route('POST', '/projects/:id/archive', async (ctx) => {
 
 /* ── WF-02：对话项目 / 对话流 / 材料 / brief ──────────────────── */
 
+/** F4 重命名：会话名 = 项目名（W0 冻结契约）
+ *  PATCH /api/huiwen-ppt/api/projects/:id/title
+ *  body { title, expected_revision? } → 200 { ok:true, project:{ id, title, state_revision, title_source } }
+ *  400 REQUIRED_FIELD_MISSING / INVALID_OPERATION、404 SOURCE_NOT_FOUND、409 STATE_REVISION_CONFLICT。
+ *  ⚠️ 分发器的自动加锁只覆盖 POST/DELETE，PATCH 不会被自动套锁；而 updateProjectMeta 内部
+ *  自带 withProjectLock + state_revision 乐观校验 → 此处直接调用，切勿再外套一层锁。
+ *  标题即时生效：listProjectCards 每次实时读 project.json，buildIndex 非 force 也重取 projects
+ *  → 不调 invalidateIndex()，避免全量重建。 */
+route('PATCH', '/projects/:id/title', async (ctx) => {
+  const body = await readJsonBody(ctx.req);
+  if (typeof body.title !== 'string') return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', 'title 必须为字符串', { field: 'title' }));
+  const title = body.title.trim();
+  if (!title) return sendJson(ctx.res, 400, apiError('REQUIRED_FIELD_MISSING', '项目名称不能为空', { missing: ['title'] }));
+  if (title.length > 80) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', '项目名称最长 80 个字符', { field: 'title', max: 80, actual: title.length }));
+  let expected;
+  if (body.expected_revision != null) {
+    expected = Number(body.expected_revision);
+    if (!Number.isInteger(expected)) return sendJson(ctx.res, 400, apiError('INVALID_OPERATION', 'expected_revision 必须为整数', { field: 'expected_revision' }));
+  }
+  const next = await projects.updateProjectMeta(ctx.params.id, { title, title_source: 'manual' }, expected);
+  sendJson(ctx.res, 200, {
+    ok: true,
+    project: { id: next.id, title: next.title, state_revision: next.state_revision, title_source: next.title_source },
+  });
+});
+
 route('POST', '/projects/new', async (ctx) => {
   const body = await readJsonBody(ctx.req);
   const r = await projects.createConversationProject(String(body.title || '').slice(0, 60) || null);

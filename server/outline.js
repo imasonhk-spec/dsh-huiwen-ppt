@@ -9,6 +9,7 @@ import path from 'node:path';
 import { readJson, writeJson, nowIso } from './util.js';
 import { projectDir } from './projects.js';
 import { inputFingerprint } from './dependencies.js';
+import { loadBrief, saveBriefDraft } from './brief.js';
 
 export async function loadOutline(id) {
   return readJson(path.join(projectDir(id), 'outline.json'), null);
@@ -86,8 +87,16 @@ export async function confirmOutline(id, confirmedBy, note) {
     e.code = 'REQUIRED_FIELD_MISSING';
     throw e;
   }
+  let fingerprint = cur.input_fingerprint;
+  if ((await loadBrief(id))?.page_count !== cur.pages.length) {
+    const before = await inputFingerprint(id);
+    await saveBriefDraft(id, { page_count: cur.pages.length });
+    // Rebase only the page-count change; never bless an already stale outline.
+    if (fingerprint === before) fingerprint = await inputFingerprint(id);
+  }
   const next = {
     ...cur,
+    input_fingerprint: fingerprint,
     approvals: { ...(cur.approvals || {}), outline: { confirmed_by: confirmedBy || '用户', note: note || '对话确认逐页大纲', at: nowIso() } },
     updated_at: nowIso(),
   };

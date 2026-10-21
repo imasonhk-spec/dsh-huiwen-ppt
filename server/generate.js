@@ -1,17 +1,19 @@
+import { resolveModel } from './llm.js';
 import path from 'node:path';
+import { reviewDraft, reviewChecklist, originalMaterials, groundedText, currentDraftReview, requirementVerificationIssue } from './quality.js';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { config } from './config.js';
 import { projectDir, loadProject, updateProjectMeta } from './projects.js';
-import { readJson, writeJson, sha256File, nowIso, apiError, stableHash } from './util.js';
+import { readJson, readJsonl, writeJson, sha256File, nowIso, apiError, stableHash } from './util.js';
 import { studio as studioRun, buildDeck } from './studio.js';
 import { renderPptxToPngs } from './render.js';
 import { buildIndex, invalidateIndex } from './index-builder.js';
 import { getPlan } from './planner.js';
 import { loadOutline } from './outline.js';
-import { loadBrief } from './brief.js';
+import { loadBrief, briefSummary } from './brief.js';
 import { createJob, getJob, startJob, setStep, listJobs } from './jobs.js';
-import { withProjectLock, checkCancelled, beginCommit, markCommitted, operationJob } from './workflow.js';
+import { withProjectLock, withPptOperation, checkCancelled, beginCommit, markCommitted, operationJob } from './workflow.js';
 import { planFingerprint } from './dependencies.js';
 import { generateSlideContent, detailedOperations, textBoxSize } from './slide-content.js';
 export const GEN_STEPS = ['生成逐页正文与构建操作','构建 PPTX','结构巡检','渲染预览与报告'];
@@ -60,12 +62,19 @@ export function fillOperations(page, slide, outIndex, content) {
 }
 export async function prepareBuildPlan(projectId,phase='sample') {
   if(!['sample','final'].includes(phase)) throw apiError('INVALID_OPERATION','phase 必须为 sample 或 final');
+  if(phase==='final') {
+    const samples=await validateSampleApproval(projectId),{meta}=await loadProject(projectId);
+    const inspection=await readJson(path.join(projectDir(projectId),'inspection-'+meta.version+'.json'),null);
+    if(!inspection?.slides?.length) throw apiError('SOURCE_NOT_FOUND','当前已确认草稿缺少实际页面');
+    return {phase,approvals:{samples},slides:inspection.slides.map(s=>({page:s.number}))};
+  }
   const plan=await getPlan(projectId);
   if(!plan || plan.input_fingerprint!==await planFingerprint(projectId)) throw apiError('STATE_REVISION_CONFLICT','执行计划已过期，请更新计划');
   const brief=await loadBrief(projectId),outline=await loadOutline(projectId);
   const approvals={requirements:brief?.approvals?.requirements,outline:outline?.approvals?.outline};
   if(!approvals.requirements || !approvals.outline) throw apiError('REQUIRED_FIELD_MISSING','需要自动补齐需求及大纲记录');
   if(phase==='final') approvals.samples=await validateSampleApproval(projectId);
+  const prepare=async feedback=>{
   const index=await buildIndex(), slides=[], inspections=new Map();
   for(const p of plan.pages) {
     const lay=index.layouts.find((l)=>l.id===p.layout_id);
@@ -85,11 +94,17 @@ export async function prepareBuildPlan(projectId,phase='sample') {
     const slide=insp?.slides?.[lay.template_slide-1];
     if(!slide) throw apiError('INVALID_OPERATION','模板页号越界：'+lay.template_slide);
     if(lay.source_template_sha && lay.source_template_sha!==await sha256File(path.join(dir,'reference.pptx'))) throw apiError('SOURCE_HASH_MISMATCH','计划模板已变化');
-    const content=phase==='sample'?await generateSlideContent(projectId,p,slide):null;
+    const content=phase==='sample'?await generateSlideContent(projectId,p,slide,feedback):null;
     slides.push({source_slide:lay.template_slide,source_template:dir,operations:fillOperations(p,slide,slides.length+1,content)});
     if(operationJob()) setStep(operationJob(),0,Math.round(slides.length/plan.pages.length*35));
   }
-  const out={phase,approvals,slides};
+  return {phase,approvals,slides};
+  };
+  const {meta}=await loadProject(projectId);
+  // Planner summaries are context, never substitutes for authorized original facts.
+  const source=phase==='sample'?{requirements:briefSummary(brief),userInstructions:groundedText(brief?.user_instructions||''),history:(await readJsonl(path.join(projectDir(projectId),'conversation.jsonl'))).filter(m=>m.role==='user'&&(m.epoch||0)===(meta.epoch||0)).map(m=>groundedText(m.text)),materials:await originalMaterials(projectId)}:null;
+  if(source&&!reviewChecklist('deck',source,{human:true}).length) throw apiError('REQUIRED_FIELD_MISSING','缺少可核对的用户原文或原始材料，请补充实际业务要求后生成');
+  const out=phase==='final'?await prepare(''):await reviewDraft({model:await resolveModel(meta.dialogue_model),advisory:true,stage:'deck',projectId,source,draft:prepare,visible:value=>({slides:value.slides.map((s,i)=>({page:i+1,operations:s.operations}))})});
   await writeJson(path.join(projectDir(projectId),'build-plan.json'),out);
   return out;
 }
@@ -102,21 +117,29 @@ export async function nextVersionLabel(projectId) {
 async function actualPlanHash(id) { return stableHash((await getPlan(id))?.pages || []); }
 export async function validateSampleApproval(id) {
   const {meta}=await loadProject(id), approval=await readJson(path.join(projectDir(id),'sample-approval.json'),null);
-  if(!approval || approval.version!==meta.version || approval.sha256!==meta.source_sha256 || approval.input_fingerprint!==await planFingerprint(id) || approval.plan_hash!==await actualPlanHash(id)) throw apiError('REQUIRED_FIELD_MISSING','请先确认当前实际样张，再执行正式定稿');
+  if(!approval || approval.version!==meta.version || approval.sha256!==meta.source_sha256) throw apiError('REQUIRED_FIELD_MISSING','请先确认当前实际样张，再执行正式定稿');
+  const current=await currentDraftReview(id,meta),issue=requirementVerificationIssue(current,approval.requirement_review);
+  if(issue) throw Object.assign(apiError('PPT_REQUIREMENTS_UNVERIFIED',issue),{details:{draft_review:current}});
+  if(approval.input_fingerprint!==await planFingerprint(id) || approval.plan_hash!==await actualPlanHash(id)) throw apiError('REQUIRED_FIELD_MISSING','请先确认当前实际样张，再执行正式定稿');
   return approval;
 }
-export async function confirmSamples(id,{version,sha256,confirmed_by,note}={}) {
+export async function confirmSamples(id,{version,sha256,confirmed_by,note,requirement_review}={}) {
   return withProjectLock(id,async()=>{
     const {meta}=await loadProject(id);
     if(!version || !sha256 || !confirmed_by || !note) throw apiError('REQUIRED_FIELD_MISSING','确认样张需要当前版本、SHA、确认人和说明');
     if(version!==meta.version || sha256!==meta.source_sha256) throw apiError('SOURCE_HASH_MISMATCH','样张已变化，请重新查看');
     const report=await readJson(path.join(projectDir(id),meta.latest_report || ''),null);
     if(report?.render!=='pass' || report?.structural!=='pass') throw apiError('INVALID_OPERATION','样张尚未完整生成和渲染');
-    const record={version,sha256,confirmed_by,note,at:nowIso(),input_fingerprint:await planFingerprint(id),plan_hash:await actualPlanHash(id)};
+    const draft_review=await currentDraftReview(id,meta),issue=requirementVerificationIssue(draft_review,requirement_review);
+    if(issue) throw Object.assign(apiError('PPT_REQUIREMENTS_UNVERIFIED',issue),{details:{draft_review}});
+    const record={version,sha256,confirmed_by,note,requirement_review,at:nowIso(),input_fingerprint:await planFingerprint(id),plan_hash:await actualPlanHash(id)};
     await writeJson(path.join(projectDir(id),'sample-approval.json'),record); return record;
   });
 }
 export async function startGenerate(projectId,{phase='sample'}={}) {
+  return withPptOperation(()=>startGenerateCore(projectId,{phase}));
+}
+async function startGenerateCore(projectId,{phase='sample'}={}) {
   return withProjectLock(projectId,async()=>{
     const {meta}=await loadProject(projectId);
     if(listJobs(projectId).some((j)=>['queued','running'].includes(j.status))) throw apiError('INVALID_OPERATION','已有任务，请等待或取消');
@@ -137,7 +160,7 @@ export async function startGenerate(projectId,{phase='sample'}={}) {
         else await buildDeck(buildPlan.slides[0].source_template,path.join(projectDir(projectId),'build-plan.json'),outPptx);
         checkCancelled(); setStep(j,2);
         const requiredPages=phase==='sample'?plan.pages.map((p,i)=>({...p,key_points:buildPlan.slides[i].operations.filter(o=>['set-text','table-cell','insert-text'].includes(o.op)&&o.text).map(o=>o.text)})):null;
-        const result=await finalizeVersion(projectId,outPptx,{phase,label:ver.label,file:ver.file,expectedSlides:buildPlan.slides.length,expectedFingerprint:fingerprint,requiredPages});
+        const result=await finalizeVersion(projectId,outPptx,{phase,label:ver.label,file:ver.file,expectedSlides:buildPlan.slides.length,expectedFingerprint:fingerprint,requiredPages,approvedSample:phase==='final'?buildPlan.approvals.samples:undefined});
         setStep(j,3,99); return result;
       } catch(e) {
         if(outPptx && !j.committed) await discardUncommitted(projectId,outPptx);
@@ -168,7 +191,7 @@ export async function startRender(id) {
     return {job_id:job.id};
   });
 }
-export async function finalizeVersion(projectId,outPptx,{phase,label,file,expectedSlides,expectedFingerprint,requiredPages}={}) {
+export async function finalizeVersion(projectId,outPptx,{phase,label,file,expectedSlides,expectedFingerprint,requiredPages,approvedSample}={}) {
   return withProjectLock(projectId,async()=>{
     checkCancelled();
     const dir=projectDir(projectId), inspPath=path.join(dir,'inspection-'+label+'.json');
@@ -187,7 +210,11 @@ export async function finalizeVersion(projectId,outPptx,{phase,label,file,expect
     checkCancelled();
     if(expectedFingerprint && expectedFingerprint!==await planFingerprint(projectId)) throw apiError('STATE_REVISION_CONFLICT','生成输入已变化，未提交版本');
     const sha=await sha256File(outPptx);
-    const report={project_id:projectId,version:label,phase,file:'versions/'+file,sha256:sha,slide_count:slideCount,
+    if(phase==='final'&&(!approvedSample||approvedSample.sha256!==sha)) throw apiError('SOURCE_HASH_MISMATCH','定稿文件与已确认的实际草稿不同，未提交');
+    const previous=phase==='preview'?await readJson(path.join(dir,'report-'+label+'.json'),null):null;
+    const proof=approvedSample||(previous?.phase==='final'&&previous.sha256===sha?previous.approved_sample:undefined);
+    const documentPhase=phase==='preview'&&proof?'final':phase;
+    const report={project_id:projectId,version:label,phase:documentPhase,approved_sample:proof,file:'versions/'+file,sha256:sha,slide_count:slideCount,
       editable_pages:insp.slides.filter((s)=>s.elements.some((e)=>e.editable_text)).length,engine:render.engine,
       engine_version:render.engine_version,render:'pass',render_pngs:render.files.map((f)=>'renders/'+label+'/'+f.file),
       structural:'pass',content:requiredPages?'pass':'not_checked',checked_at:nowIso()};
@@ -198,7 +225,7 @@ export async function finalizeVersion(projectId,outPptx,{phase,label,file,expect
       renders:{...(state.renders||{}),[label]:report.render_pngs}});
     await updateProjectMeta(projectId,{status:'active',stage:'done',version:label,source_name:file,source_sha256:sha,
       page_count:slideCount,active_job:null,latest_report:'report-'+label+'.json',last_render_engine:render.engine,last_render_engine_version:render.engine_version,
-      checks:{structural:'pass',render:'pass',visual_review:'pending',editability:report.editable_pages?'pass':'pending',user_acceptance:'pending'},next_action:'画布审阅与修订'});
+      checks:{structural:'pass',render:'pass',visual_review:'pending',editability:report.editable_pages?'pass':'pending',user_acceptance:proof?'confirmed':'pending'},document_state:documentPhase==='final'?'final':'draft',next_action:documentPhase==='final'?'已确认定稿，可预览下载':'草稿待预览、修改及要求核实'});
     markCommitted(); invalidateIndex();
     return {version:label,file,sha256:sha,slide_count:slideCount,editable_pages:report.editable_pages,report};
   });

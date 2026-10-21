@@ -6,8 +6,9 @@ import { listContentMaterials } from './materials.js';
 import { sourceEvidence } from './material-analysis.js';
 import { resolveModel, chatJson } from './llm.js';
 import { readJson, writeJson, stableHash, apiError } from './util.js';
-import { inputFingerprint } from './dependencies.js';
-import { checkCancelled } from './workflow.js';
+import { inputFingerprint, planFingerprint } from './dependencies.js';
+import { checkCancelled, withPptOperation, requestPptCorrection } from './workflow.js';
+import { reviewDraft, groundedText } from './quality.js';
 import { listMaterialFacts } from './knowledge.js';
 
 function titleShape(slide) {
@@ -60,7 +61,7 @@ function fieldIssue(slot,text,checkCapacity=true) {
   return issues.join('；') || undefined;
 }
 
-function minimumContentChars(page,slots) {
+function suggestedContentChars(page,slots) {
   return /封面|收尾/.test(page.relation)?40:Math.min(180,Math.floor(slots.reduce((n,s)=>n+s.max_chars,0)*0.55));
 }
 
@@ -76,7 +77,7 @@ function missingNameIssue(content,page,sources) {
 }
 
 export function contentIssue(value,page,slots,sources,checkCapacity=true,checkRichness=checkCapacity) {
-  if(!Array.isArray(value.fields) || value.fields.length!==slots.length || new Set(value.fields.map(f=>f?.id)).size!==slots.length) return 'fields 必须完整且不重复地包含全部字段编号';
+  if(!Array.isArray(value.fields) || value.fields.length!==slots.length || new Set(value.fields.map(f=>f?.id)).size!==slots.length || slots.some(s=>!value.fields.some(f=>f?.id===s.id))) return 'fields 必须完整且不重复地且仅包含这些编号 '+JSON.stringify(slots.map(s=>s.id))+'；实际编号 '+JSON.stringify(Array.isArray(value.fields)?value.fields.map(f=>f?.id):value.fields);
   const issues=[];
   for(const slot of slots) {
     const field=value.fields.find(f=>f?.id===slot.id);
@@ -87,10 +88,7 @@ export function contentIssue(value,page,slots,sources,checkCapacity=true,checkRi
   }
   if(issues.length) return issues.join('；');
   const text=value.fields.map(f=>f.text).join('\n');
-  const minimum=minimumContentChars(page,slots);
-  const chars=text.replace(/\s/g,'').length;
-  if(checkRichness && chars<minimum) return '正文过于简略，当前 '+chars+' 字，需要至少 '+minimum+' 字；在有剩余容量的正文区补充输入、处理步骤、输出、依据与条件，不能原样返回大纲短句';
-  if(!Array.isArray(value.covered_points) || (page.key_points || []).some((_,i)=>!value.covered_points.includes(i+1))) return 'covered_points 必须覆盖全部大纲要点编号';
+  // The author's coverage declaration is advisory; actual draft requirements remain unverified until human review.
   if(!Array.isArray(value.evidence_ids) || (sources.length && !value.evidence_ids.length) || value.evidence_ids.some(id=>!sources.some(s=>s.id===id))) return 'evidence_ids 必须选择提供的原文编号；无材料时使用空数组';
   const original=sources.filter(s=>value.evidence_ids.includes(s.id)).map(s=>s.quote).join('\n');
   if(claimsMeasured(text) && !claimsMeasured(original)) return '原文没有实测/已验证证据，必须保留初步测算、预计或计划等事实状态';
@@ -98,6 +96,9 @@ export function contentIssue(value,page,slots,sources,checkCapacity=true,checkRi
 }
 
 export async function fitContentFields(model,content,page,slots,sources) {
+  return withPptOperation(()=>fitContentFieldsCore(model,content,page,slots,sources));
+}
+async function fitContentFieldsCore(model,content,page,slots,sources) {
   // Refilled content must pass through the same compression as the initial draft.
   for(let round=0;round<2;round++) {
     let redistributionIssue;
@@ -111,6 +112,7 @@ export async function fitContentFields(model,content,page,slots,sources) {
       });
       let fixed;
       try {
+        if(!await requestPptCorrection('字段容量修正')) throw apiError('LLM_BAD_OUTPUT','本次生成已用过一次自动纠正，请人工调整当前草稿');
         fixed=await chatJson({model,timeoutMs:600000,system:'将PPT字段精简为适合文本框的短句。尽量保留信息，只精简超出的部分，保留实体、数字、预计等事实限定和关键机制；标题只写短标签，不堆砌说明。每个字段控制在target_chars左右，绝不能超过max_chars，不要换行。只输出JSON {"fields":[{"id":"原编号","text":"精简后的文字"}]}，完整覆盖本次全部字段。',messages:[{role:'user',content:JSON.stringify({fields})}]},v=>{
           if(!Array.isArray(v.fields) || v.fields.length!==batch.length || new Set(v.fields.map(f=>f?.id)).size!==batch.length) return 'fields 必须完整且不重复地包含本次全部字段';
           return batch.map(s=>fieldIssue(s,v.fields.find(f=>f?.id===s.id)?.text)).filter(Boolean).join('；') || undefined;
@@ -123,31 +125,14 @@ export async function fitContentFields(model,content,page,slots,sources) {
       for(const field of fixed.fields) content.fields.find(f=>f.id===field.id).text=field.text;
     }
     redistributionIssue ||= missingNameIssue(content,page,sources);
-    const chars=content.fields.map(f=>f.text).join('').replace(/\s/g,'').length;
-    const gap=minimumContentChars(page,slots)-chars;
-    if(!redistributionIssue && gap>0) {
-      const available=slots.filter(s=>s.max_chars>=40 && !/标题|表头|标签/.test(s.name) && !(s.kind==='table' && s.column===0)).map(s=>({...s,current_text:content.fields.find(f=>f.id===s.id).text})).map(s=>({...s,room:s.max_chars-s.current_text.replace(/\s/g,'').length})).sort((a,b)=>b.room-a.room);
-      const slot=available.find(s=>s.room>=gap);
-      if(slot) {
-        const minimum=slot.current_text.replace(/\s/g,'').length+gap;
-        const filled=await chatJson({model,timeoutMs:600000,system:'仅扩写指定的一个PPT正文区，其他字段已完成。保留当前正文的事实、数字、预计/计划限定和完整技术名称，依据原文补充输入、处理机制、输出与条件。该字段至少写到 min_chars 字（不含空白），尽量达到 target_chars，不能原样返回短正文，也不能重复句子凑字数。遵守 max_lines，不超出可读容量。只输出 JSON {"fields":[{"id":"指定编号","text":"完整扩写后的正文"}]}。',messages:[{role:'user',content:JSON.stringify({page,fields:[{id:slot.id,name:slot.name,current_text:slot.current_text,min_chars:minimum,target_chars:Math.min(slot.max_chars,minimum+8),max_chars:slot.max_chars,max_lines:slot.max_lines}],sources})}]},v=>{
-          if(!Array.isArray(v.fields) || v.fields.length!==1 || v.fields[0]?.id!==slot.id || typeof v.fields[0].text!=='string') return '只返回指定的一个完整正文字段 '+slot.id;
-          if(v.fields[0].text.replace(/\s/g,'').length<=slot.current_text.replace(/\s/g,'').length) return '字段 '+slot.id+' 尚未增加正文，需要至少 '+minimum+' 字，请补充具体机制、依据与输出，不能原样返回';
-          const candidate={...content,fields:content.fields.map(f=>f.id===slot.id?v.fields[0]:f)};
-          return contentIssue(candidate,page,slots,sources,true,false) || missingNameIssue(candidate,page,sources);
-        });
-        content.fields.find(f=>f.id===slot.id).text=filled.fields[0].text;
-        if(content.fields.map(f=>f.text).join('').replace(/\s/g,'').length>=minimumContentChars(page,slots)) break;
-        continue;
-      }
-    }
-    if(round===1 || (!redistributionIssue && gap<=0)) break;
+    if(round===1 || !redistributionIssue) break;
+    if(!await requestPptCorrection('内容重新分配')) throw apiError('LLM_BAD_OUTPUT','本次生成已用过一次自动纠正，请人工调整当前草稿');
     content=await chatJson({model,timeoutMs:600000,system:[
-        '当前页面需调整内容分配或补足正文。依据提供的原文及当前正文，将长模型名、实体、数字及完整机制移到有剩余容量的正文区，短字段只保留中文职责或标签；issue 指出的溢出字段必须改写，完整英文名称移到长正文区，不能原样返回。不能删除关键事实。补充输入、处理机制、输出、条件与依据。',
+        '当前页面需调整内容分配以解决字段容量或名称遗漏。依据提供的原文及当前正文，将长模型名、实体、数字及完整机制移到有剩余容量的正文区，短字段只保留中文职责或标签；issue 指出的溢出字段必须改写，完整英文名称移到长正文区，不能原样返回。不能删除关键事实。补充输入、处理机制、输出、条件与依据。',
         'required_names 中的完整名称必须逐字保留，并分配到 name_fields 指定的宽正文区，结合原文解释机制；其余窄字段只写中文动作/职责标签，不填写英文模型全称。不能将完整名称塞回原来的窄框，也不能只保留简称。',
-        '整页至少达到page_min_chars字（不含空白），各字段尽量写到target_chars，绝不能原样返回不足字数的当前正文。每个字段不得超过max_chars和max_lines（含自动折行）。不要删字段或大纲要点，不增加无依据事实，保留预计、初步测算、计划等事实限定。',
+        'page_target_chars仅为密度建议，不为凑字数扩写；按原文和用户要求决定详略，解决指出的容量或名称问题。每个字段不得超过max_chars和max_lines（含自动折行）。不要删字段或大纲要点，不增加无依据事实，保留预计、初步测算、计划等事实限定。',
         '只输出JSON {"fields":[{"id":"原编号","text":"完整正文"}],"evidence_ids":["原文编号"],"covered_points":[1,2]}，覆盖全部字段和大纲要点。',
-      ].join('\n'),messages:[{role:'user',content:JSON.stringify({page,page_min_chars:minimumContentChars(page,slots),required_names:requiredNames(page,sources),name_fields:[...slots].sort((a,b)=>b.max_chars-a.max_chars).slice(0,2).map(s=>s.id),redistribution_issue:redistributionIssue,fields:slots.map(s=>({id:s.id,name:s.name,max_chars:s.max_chars,max_lines:s.max_lines,target_chars:Math.max(1,Math.floor(s.max_chars*0.8)),current_text:content.fields.find(f=>f.id===s.id).text,issue:fieldIssue(s,content.fields.find(f=>f.id===s.id).text)})),sources})}]},v=>contentIssue(v,page,slots,sources,false,true));
+      ].join('\n'),messages:[{role:'user',content:JSON.stringify({page,page_target_chars:suggestedContentChars(page,slots),required_names:requiredNames(page,sources),name_fields:[...slots].sort((a,b)=>b.max_chars-a.max_chars).slice(0,2).map(s=>s.id),redistribution_issue:redistributionIssue,fields:slots.map(s=>({id:s.id,name:s.name,max_chars:s.max_chars,max_lines:s.max_lines,target_chars:Math.max(1,Math.floor(s.max_chars*0.8)),current_text:content.fields.find(f=>f.id===s.id).text,issue:fieldIssue(s,content.fields.find(f=>f.id===s.id).text)})),sources})}]},v=>contentIssue(v,page,slots,sources,false,true));
   }
   const issue=contentIssue(content,page,slots,sources) || missingNameIssue(content,page,sources);
   if(issue) throw apiError('LLM_BAD_OUTPUT',issue);
@@ -187,28 +172,41 @@ function pageSources(page,refs) {
   return [...selected].sort((a,b)=>a-b).map(i=>refs[i]).filter(s=>{size+=s.quote.length;return size<=12000;});
 }
 
-export async function generateSlideContent(id,page,slide) {
+export async function generateSlideContent(id,page,slide,qualityFeedback='') {
   checkCancelled();
   const {meta}=await loadProject(id),model=await resolveModel(meta.dialogue_model);
   if(!model.online) throw apiError('LLM_UNAVAILABLE','逐页正文生成需要可用模型：'+(model.reason || model.label));
   const slots=contentSlots(slide),allSources=await originalSources(id),sources=pageSources(page,allSources);
-  const fingerprint=stableHash({schema:2,input:await inputFingerprint(id),page,slots,sources:allSources.filter(s=>!s.id.startsWith('brief:')),model:{id:model.id,tag:model.tag}});
+  const reviewContext=stableHash({schema:12,plan:await planFingerprint(id),sources:allSources,model:{id:model.id,tag:model.tag}});
+  const fingerprint=stableHash({schema:12,reviewContext,input:await inputFingerprint(id),page,slots,sources:allSources.filter(s=>!s.id.startsWith('brief:')),model:{id:model.id,tag:model.tag}});
   const file=path.join(projectDir(id),'slide-content.json');
   const savedCache=await readJson(file,null);
   const cache=Array.isArray(savedCache?.pages)?savedCache:{pages:[]};
   const saved=cache.pages?.find(p=>p.n===page.n && p.fingerprint===fingerprint);
-  if(saved && !contentIssue(saved.content,page,slots,sources)) return saved.content;
+  if(saved && !qualityFeedback && !contentIssue(saved.content,page,slots,sources)) return saved.content;
+  const draft=async feedback=>{
+  feedback=[qualityFeedback,feedback].filter(Boolean).join('\n');
   let content=await chatJson({model,timeoutMs:600000,system:[
     '你是 PPT 正文作者，必须把大纲展开为可直接展示的完整内容，而不是规划说明。',
+    'fields 的id必须恰好为 '+JSON.stringify(slots.map(s=>s.id))+'，不增删、不重复；不得照抄示例编号。',
+    'sources内的instructions/goal/brief/制作要求是要求，不是展示事实；completed中的本人结论须结合职责和原事实，不沿用已过期的待核算说明。',
+    '逐项保留原文所有并列对象、责任主体、先后条件、否定和未决状态，不得概括吞掉事实或实体限定；原文简短且字段足够时优先保留原句，把全文动作及所有条件放入正文适当字段，不为凑短改写原始对象名称。页数、生成流程、禁止编造等制作指令仅用于自检，不得写入fields；业务本身的操作约束应正常保留。收尾每条事项应概括原文具体动作及条件，不能仅写“操作约束”“待确认事项”等类别标签；字段虽短，仍用原文有依据的动作短句。',
+    ...(feedback?['独立业务复核要求重新生成：'+feedback]:[]),
     '原文是事实依据，大纲仅是结构。如果两者冲突，以原文为准。不得把预计、初步测算、试点或计划写成实测、已实施或已验证，不虚构数字、案例、评分或完成状态。',
     '按模板字段组织正文：短字段写分区标题/标签，长字段展开输入、步骤、技术机制、输出、证据、使用条件；表格逐格填写，单一字段不要塞全部要点。',
     'required_names 中的完整名称分配到 name_fields 指定的宽正文区，结合原文介绍机制。max_chars 不足16的窄字段只写中文职责/动作标签，不能塞入完整英文模型名称再靠删除名称压缩。',
-    '通常内容页写220–400字，封面/收尾简洁。优先控制在每个字段target_chars左右，max_chars 是硬上限，长英文和符号也计入字数；换行会消耗容量，只在长正文区分段。详细信息只来自原文，无依据的建议必须写明建议/待验证。',
+    '通常内容页建议220–400字，材料简短时据实保持简短，不为凑字数扩写；page_target_chars只是内部密度建议，用户明确字数要求仍须保留核验。封面/收尾简洁。优先控制在每个字段target_chars左右，max_chars 是硬上限，长英文和符号也计入字数；换行会消耗容量，只在长正文区分段。详细信息只来自原文，无依据的建议必须写明建议/待验证。',
     '输出 JSON {"fields":[{"id":"字段编号","text":"完整正文"}],"evidence_ids":["原文编号"],"covered_points":[1,2]}。fields必须包含每个字段且都非空，covered_points列出全部已融入正文的大纲要点编号。只选择原文中存在的evidence_ids，选择3–6个最相关编号，不抄写原文；原文不足3条时选择全部，无材料时空数组。',
-  ].join('\n'),messages:[{role:'user',content:JSON.stringify({requirements:briefSummary(await loadBrief(id)),page,page_min_chars:minimumContentChars(page,slots),required_names:requiredNames(page,sources),name_fields:[...slots].sort((a,b)=>b.max_chars-a.max_chars).slice(0,2).map(s=>s.id),fields:slots.map(({id,name,max_chars,max_lines})=>({id,name,max_chars,max_lines,target_chars:Math.max(1,Math.floor(max_chars*0.75))})),sources})}]},v=>contentIssue(v,page,slots,sources,false));
-  content=await fitContentFields(model,content,page,slots,sources);
+  ].join('\n'),messages:[{role:'user',content:JSON.stringify({requirements:briefSummary(await loadBrief(id)),page,page_target_chars:suggestedContentChars(page,slots),required_names:requiredNames(page,sources),name_fields:[...slots].sort((a,b)=>b.max_chars-a.max_chars).slice(0,2).map(s=>s.id),fields:slots.map(({id,name,max_chars,max_lines})=>({id,name,max_chars,max_lines,target_chars:Math.max(1,Math.floor(max_chars*0.75))})),sources})}]},v=>contentIssue(v,page,slots,sources,false));
+  return fitContentFields(model,content,page,slots,sources);
+  };
+  const outline=await readJson(path.join(projectDir(id),'outline.json'),null);
+  const completedPages=cache.pages.filter(p=>p.n!==page.n&&p.review_context_fingerprint===reviewContext).map(p=>({n:p.n,page:p.page,content:p.content}));
+  const source={userInstructions:groundedText((await loadBrief(id))?.user_instructions||''),requirements:briefSummary(await loadBrief(id)),reviewScope:{kind:'single_page',currentPage:page.n,pageRole:page.relation},page,layoutFields:slots.map(({id,name,kind,max_chars,max_lines})=>({id,name,kind,max_chars,max_lines})),outline:outline?.pages||[],completedPages,sources};
+  // Summary completeness can only be judged against the full deck, before build.
+  const content=/封面|收尾/.test(page.relation)?await draft(''):await reviewDraft({model,advisory:true,stage:'content',projectId:id,source,draft});
   checkCancelled();
-  await writeJson(file,{schema:1,pages:[...(cache.pages || []).filter(p=>p.n!==page.n),{n:page.n,fingerprint,model:model.tag,content,sources:sources.filter(s=>content.evidence_ids.includes(s.id))}]});
+  await writeJson(file,{schema:1,pages:[...(cache.pages || []).filter(p=>p.n!==page.n),{n:page.n,fingerprint,review_context_fingerprint:reviewContext,page,model:model.tag,content,sources:sources.filter(s=>content.evidence_ids.includes(s.id))}]});
   return content;
 }
 

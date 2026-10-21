@@ -237,7 +237,19 @@ export async function updateProjectMeta(id, patch, expectedRevision) {
     e.details = { expected: expectedRevision, actual: meta.state_revision || 1 };
     throw e;
   }
-  const next = { ...meta, ...patch, state_revision: (meta.state_revision || 1) + 1, updated_at: nowIso() };
+  /* F4 重命名·命名来源集中策略（单点实施，覆盖全部标题回写调用点）：
+     - project.json.title_source：'auto' | 'manual'；旧项目缺字段视为 'auto'（不批量迁移）。
+     - 用户手动命名（'manual'）确立后，任何**未显式声明 title_source** 的自动标题回写
+       一律剔除本次 patch 中的 title，绝不覆盖手动命名。
+     - 显式旁路：patch 自带 title_source（如用户主动重命名 { title, title_source:'manual' }），
+       此时 title 正常写入。
+     - 覆盖的既有回写点：brief.js saveBriefDraft、dialogue.js 改主题/重置/访谈落库
+       （含 dialogue.js 内无条件的 { stage, title } 写入）。 */
+  const effective = { ...patch };
+  if (effective.title !== undefined && effective.title_source === undefined && (meta.title_source || 'auto') === 'manual') {
+    delete effective.title;
+  }
+  const next = { ...meta, ...effective, state_revision: (meta.state_revision || 1) + 1, updated_at: nowIso() };
   await saveProjectMeta(id, next);
   return next;
   });
@@ -251,6 +263,11 @@ export async function projectSnapshot(id) {
     if (snapshot.materials) snapshot.materials = await (await import('./materials.js')).listMaterials(id);
     snapshot.report = meta.latest_report ? await readJson(path.join(dir, meta.latest_report), null) : null;
     snapshot.renders = snapshot.report?.render_pngs || [];
+    if(meta.version) {
+      try { snapshot.draft_review=await (await import('./quality.js')).currentDraftReview(id,meta); }
+      catch(error) { snapshot.draft_review={version:meta.version,sha256:meta.source_sha256,state:'unverified',requirements:[],error:error.message}; }
+    }
+    snapshot.document_state=snapshot.report?.phase==='final'&&snapshot.report.approved_sample?.sha256===meta.source_sha256&&snapshot.report.approved_sample?.requirement_review?.source_sha256===snapshot.draft_review?.source_sha256?'final':'draft';
     return snapshot;
   };
   for (let attempt=0;attempt<3;attempt++) {

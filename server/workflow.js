@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 const scope = new AsyncLocalStorage();
 const tails = new Map();
-export function withModelBudget(budget, fn) { return scope.run({ ...(scope.getStore() || {}), modelBudget: budget }, fn); }
+export function withModelBudget(budget, fn) { const parent=scope.getStore()||{}; return scope.run({ ...parent, modelBudget:budget, pptOperation:parent.pptOperation||{corrected:false} },fn); }
 export function modelBudget() { return scope.getStore()?.modelBudget; }
 export async function withProjectLock(id, fn) {
   const parent = scope.getStore() || {};
@@ -15,7 +15,7 @@ export async function withProjectLock(id, fn) {
   try { return await scope.run({ ...parent, lock: id }, fn); }
   finally { release(); if (tails.get(id) === tail) tails.delete(id); }
 }
-export function withJobScope(job, fn) { return scope.run({ ...(scope.getStore() || {}), lock: undefined, job }, fn); }
+export function withJobScope(job, fn) { return scope.run({ ...(scope.getStore() || {}), lock: undefined, job, pptOperation:scope.getStore()?.pptOperation||{corrected:false} }, fn); }
 export function operationSignal() { return scope.getStore()?.job?.controller?.signal; }
 export function operationJob() { return scope.getStore()?.job; }
 export function checkCancelled() {
@@ -23,3 +23,17 @@ export function checkCancelled() {
 }
 export function beginCommit() { checkCancelled(); const job=scope.getStore()?.job; if(job)job.committing=true; }
 export function markCommitted() { const job = scope.getStore()?.job; if (job) { job.committed = true; job.committing=false; } }
+
+export function withPptOperation(fn) {
+  const parent=scope.getStore()||{};
+  return parent.pptOperation?fn():scope.run({...parent,pptOperation:{corrected:false}},fn);
+}
+export async function requestPptCorrection(reason) {
+  checkCancelled();
+  const operation=scope.getStore()?.pptOperation;
+  if(!operation||operation.corrected) return false;
+  const admission=modelBudget()?.requestCorrection;
+  if(admission&&!await admission({reason})) return false;
+  operation.corrected=true;
+  return true;
+}

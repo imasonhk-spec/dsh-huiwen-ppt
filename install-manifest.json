@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "bundle": "@local/huiwen-ppt",
+  "version": "0.5.0",
+  "pluginId": "huiwen-ppt",
+  "title": "慧文 PPT",
+  "requires": {
+    "bundlesBefore": [],
+    "hostServices": [
+      "webServer"
+    ],
+    "hostServicesSoft": [],
+    "pluginsOptional": [
+      "workbenchCapabilities"
+    ]
+  },
+  "license": {
+    "gateVersion": "1.2c",
+    "gateMd5": "d27eff05335e9a57a976150865b73e7d",
+    "httpMd5": "dd31ae47fce2740154cf3e6e5d6dfeec",
+    "gatePaths": [
+      "license-gate.mjs",
+      "license-http.mjs"
+    ],
+    "panelMode": "inline",
+    "panelMustHave": [
+      "state.silent"
+    ],
+    "panelMustNotHave": [
+      "pool === 0 ? 'no_ticket'"
+    ],
+    "panelMd5": "4c5d24d8b9f840c97ecf6f0d75d26ec5",
+    "panelFile": "license-panel.js"
+  },
+  "runtime": {
+    "node": ">=20",
+    "bins": [
+      {
+        "name": "soffice",
+        "apt": "libreoffice-writer",
+        "required": false,
+        "degrade": "禁用 PPT 预览渲染，保留文案生成与导出"
+      }
+    ],
+    "models": [],
+    "services": []
+  },
+  "paths": {
+    "dataDir": {
+      "env": "DSH_HOME",
+      "default": "$DSH_HOME/huiwen-data"
+    }
+  },
+  "enhancements": []
+}

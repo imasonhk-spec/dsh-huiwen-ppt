@@ -1,6 +1,6 @@
 {
   "name": "@local/huiwen-ppt",
-  "version": "0.4.10",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "汇文 PPT —— 模板驱动的 PPT 快速生产（真实后端：资源索引 / 项目 / LibreOffice 渲染 / 真模型对话）",
@@ -18,7 +18,11 @@
     "icon.svg",
     "assets/",
     "README.md",
-    "package.json"
+    "package.json",
+    "license-gate.mjs",
+    "license-http.mjs",
+    "license-panel.js",
+    "install-manifest.json"
   ],
   "icon": "./icon.svg",
   "dsh": {

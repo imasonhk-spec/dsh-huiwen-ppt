@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initCore, handlePackRequest, bootState } from './server/server.js';
 import { VERSION } from './server/meta.js';
+import { installLicense } from './license-http.mjs'; /* PATCH:WB-LIC-IMPORT */
 
 export { VERSION };
 
@@ -154,6 +155,10 @@ export const inject = ['webServer'];
 
 export function apply(ctx, _config) {
   const disposers = [];
+  /* PATCH:WB-LIC-APPLY — 授权收口：本插件自带授权运行时，不依赖工作台；apply 阶段绝不 throw */
+  const __lic = installLicense(ctx, { pluginId: 'huiwen-ppt', prefix: '/api/huiwen-ppt' });
+  try { disposers.push(() => { try { __lic.gate.flush(); } catch {} }); } catch {}
+
   PACK_CONTEXT = ctx;
   disposers.push(() => { PACK_CONTEXT = null; });
 
@@ -169,6 +174,7 @@ export function apply(ctx, _config) {
           kind: 'prefix',
           path: '/api/huiwen-ppt',
           handler(req, res) {
+            if (__lic.guard(req, res)) return; /* PATCH:WB-LIC-GUARD */
             handlePackHttpRequest(req, res).catch((e) => {
               sendJson(res, 500, { ok: false, code: 'INTERNAL', message: '处理失败：' + (e && e.message ? e.message : String(e)) });
             });

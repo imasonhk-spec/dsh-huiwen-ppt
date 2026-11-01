@@ -5,7 +5,7 @@ set -euo pipefail
 PKG_NAME="dsh-huiwen-ppt"
 PKG_VERSION="0.6.0"
 PLUGIN_DIR="@local/huiwen-ppt"
-SERVICES="dsh-huiwen-agron dsh-docs-engine redis-zhihui zhihui-sso dsh-ollama-shim"
+SERVICES="dsh-huiwen-agron dsh-docs-engine dsh-ollama-shim"
 
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 PROFILE_DIR="$DSH_HOME/profiles/web"

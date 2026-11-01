@@ -1,0 +1,15 @@
+
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+            <rect width="100%" height="100%" fill="#f9fafb" />
+            <image x="50%" y="50%" transform="translate(-48 -72)" width="96" height="96" href="
+  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+      <g fill="#CBCDD1" fill-rule="nonzero">
+          <path
+              d="M35 20c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9zm2-10c1.105 0 2 .895 2 2v5.683c-.642-.227-1.31-.401-2-.517V12H9v17.963l9.218-10.36 5.601 5.03c-.273.698-.482 1.428-.62 2.183l-4.823-4.33L9 33.021V34l15.089.001c.324.706.714 1.376 1.164 2L9 36c-1.105 0-2-.895-2-2V12c0-1.105.895-2 2-2h28zm-2 12c-3.866 0-7 3.134-7 7s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm1 9v2h-2v-2h2zm0-6v5h-2v-5h2z"
+              transform="translate(-264.000000, -888.000000) translate(100.000000, 832.000000) translate(32.000000, 56.000000) translate(132.000000, 0.000000)" />
+      </g>
+  </svg>
+" />
+            <text x="50%" y="50%" transform="translate(0 48.5)" dominant-baseline="middle" text-anchor="middle" font-size="24.5" fill="#c2c2c2"></text>
+        </svg>
+    

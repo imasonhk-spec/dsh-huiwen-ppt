@@ -1,0 +1,182 @@
+{
+  "engine": "libreoffice",
+  "engine_version": "24.2.7.2",
+  "source_sha256": "20b708ec976a5daa9492fb5035c2552e0e74b94fc01c0f64bcd148e8355a0df7",
+  "pages": 41,
+  "files": [
+    {
+      "slide": 1,
+      "file": "slide-001.png"
+    },
+    {
+      "slide": 2,
+      "file": "slide-002.png"
+    },
+    {
+      "slide": 3,
+      "file": "slide-003.png"
+    },
+    {
+      "slide": 4,
+      "file": "slide-004.png"
+    },
+    {
+      "slide": 5,
+      "file": "slide-005.png"
+    },
+    {
+      "slide": 6,
+      "file": "slide-006.png"
+    },
+    {
+      "slide": 7,
+      "file": "slide-007.png"
+    },
+    {
+      "slide": 8,
+      "file": "slide-008.png"
+    },
+    {
+      "slide": 9,
+      "file": "slide-009.png"
+    },
+    {
+      "slide": 10,
+      "file": "slide-010.png"
+    },
+    {
+      "slide": 11,
+      "file": "slide-011.png"
+    },
+    {
+      "slide": 12,
+      "file": "slide-012.png"
+    },
+    {
+      "slide": 13,
+      "file": "slide-013.png"
+    },
+    {
+      "slide": 14,
+      "file": "slide-014.png"
+    },
+    {
+      "slide": 15,
+      "file": "slide-015.png"
+    },
+    {
+      "slide": 16,
+      "file": "slide-016.png"
+    },
+    {
+      "slide": 17,
+      "file": "slide-017.png"
+    },
+    {
+      "slide": 18,
+      "file": "slide-018.png"
+    },
+    {
+      "slide": 19,
+      "file": "slide-019.png"
+    },
+    {
+      "slide": 20,
+      "file": "slide-020.png"
+    },
+    {
+      "slide": 21,
+      "file": "slide-021.png"
+    },
+    {
+      "slide": 22,
+      "file": "slide-022.png"
+    },
+    {
+      "slide": 23,
+      "file": "slide-023.png"
+    },
+    {
+      "slide": 24,
+      "file": "slide-024.png"
+    },
+    {
+      "slide": 25,
+      "file": "slide-025.png"
+    },
+    {
+      "slide": 26,
+      "file": "slide-026.png"
+    },
+    {
+      "slide": 27,
+      "file": "slide-027.png"
+    },
+    {
+      "slide": 28,
+      "file": "slide-028.png"
+    },
+    {
+      "slide": 29,
+      "file": "slide-029.png"
+    },
+    {
+      "slide": 30,
+      "file": "slide-030.png"
+    },
+    {
+      "slide": 31,
+      "file": "slide-031.png"
+    },
+    {
+      "slide": 32,
+      "file": "slide-032.png"
+    },
+    {
+      "slide": 33,
+      "file": "slide-033.png"
+    },
+    {
+      "slide": 34,
+      "file": "slide-034.png"
+    },
+    {
+      "slide": 35,
+      "file": "slide-035.png"
+    },
+    {
+      "slide": 36,
+      "file": "slide-036.png"
+    },
+    {
+      "slide": 37,
+      "file": "slide-037.png"
+    },
+    {
+      "slide": 38,
+      "file": "slide-038.png"
+    },
+    {
+      "slide": 39,
+      "file": "slide-039.png"
+    },
+    {
+      "slide": 40,
+      "file": "slide-040.png"
+    },
+    {
+      "slide": 41,
+      "file": "slide-041.png"
+    }
+  ],
+  "warnings": [
+    {
+      "type": "font_substitution",
+      "note": "服务器无微软雅黑，预览由 Noto Sans CJK/文泉驿替代渲染；最终视觉验收以 WPS 打开导出文件为准"
+    }
+  ],
+  "visual_review": "pending",
+  "duration_ms": 15256,
+  "created_at": "2026-10-29T15:01:28.451Z",
+  "slide_count": 41
+}

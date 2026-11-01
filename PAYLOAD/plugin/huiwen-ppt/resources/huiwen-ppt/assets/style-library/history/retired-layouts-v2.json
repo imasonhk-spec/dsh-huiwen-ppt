@@ -1,0 +1,47 @@
+{
+  "reason": "removed_from_user_template",
+  "source_sha256": "d09007f1166f9babe62b75041f76138e499eafc0089b4c9a1c66b448c90fe93e",
+  "layouts": [
+    {
+      "id": "option-matrix",
+      "name": "方案选择与条件矩阵",
+      "tags": [
+        "方案",
+        "比较",
+        "选择"
+      ],
+      "source_ids": [
+        "ref-11"
+      ],
+      "origin": "derived",
+      "composition": "原生矩阵按相同维度比较，底部适用条件",
+      "required_fields": [
+        "方案名称",
+        "统一比较维度",
+        "事实依据",
+        "投入条件",
+        "适用范围",
+        "待确认项"
+      ],
+      "capacity": "2–3方案、3–5维度；保持单位与比较口径一致",
+      "regions": [
+        "table:52,170,1176,390",
+        "decision:52,585,1176,40"
+      ],
+      "asset_ids": [
+        "business-tools"
+      ],
+      "template_slide": 14,
+      "reference_preview": "sources/ref-11.png",
+      "template_preview": "previews/slide-014.png",
+      "native_requirements": [
+        "text",
+        "table"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 2
+    }
+  ],
+  "backup": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport\\backup\\profile-skill\\assets\\style-library"
+}

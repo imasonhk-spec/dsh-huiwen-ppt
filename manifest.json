@@ -1,0 +1,31 @@
+{
+  "name": "dsh-huiwen-ppt",
+  "unit": "dsh-huiwen-ppt",
+  "version": "0.6.0",
+  "previousVersion": "0.5.0",
+  "title": "汇文 PPT",
+  "kind": "plugin",
+  "services": [
+    "dsh-huiwen-agron",
+    "dsh-docs-engine",
+    "redis-zhihui",
+    "zhihui-sso",
+    "dsh-ollama-shim"
+  ],
+  "ports": [
+    18100,
+    39099
+  ],
+  "pluginDir": "@local/huiwen-ppt",
+  "hasVenv": false,
+  "hasNode": false,
+  "hasHarness": false,
+  "generatedAt": "2026-11-01T22:37:23+08:00",
+  "host": "lgsj",
+  "installScope": [
+    "host-profile",
+    "all-existing-accounts"
+  ],
+  "baseRepo": "imasonhk-spec/dsh",
+  "baseTag": "v0.2.0"
+}

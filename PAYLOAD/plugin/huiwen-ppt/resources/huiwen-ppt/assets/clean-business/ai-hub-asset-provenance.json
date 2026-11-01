@@ -1,0 +1,72 @@
+{
+  "generated_assets": [],
+  "retained_assets": [
+    {
+      "id": "brand-mark",
+      "source_media": "image3.png",
+      "crop": [
+        34,
+        18,
+        108,
+        76
+      ],
+      "sha256": "672b6d22368eeee9a2bd185d3ed24587eb8c9897cc66d02faf0a6f81e105a08b",
+      "kind": "user_source_artwork_crop"
+    },
+    {
+      "id": "agent-people",
+      "source_media": "image6.png",
+      "crop": [
+        670,
+        325,
+        1208,
+        545
+      ],
+      "sha256": "3a1d4b317efd7cbb8d8d4d326b90e1db68b670ff4985c8ef62ab34c5de1f5ede",
+      "kind": "user_source_artwork_crop",
+      "mask": "Two empty corners containing unrelated source prose removed by transparency: local rectangles [0,0,65,70], [0,205,40,220]. Original illustration preserved."
+    },
+    {
+      "id": "handshake-people",
+      "source_media": "image15.png",
+      "crop": [
+        190,
+        482,
+        728,
+        656
+      ],
+      "sha256": "7b2e627fbd8fca263ebfe95a4dde1846a410581157ac08c3965de4e88bbf6054",
+      "kind": "user_source_artwork_crop"
+    },
+    {
+      "id": "policy-document",
+      "source_media": "image11.png",
+      "crop": [
+        160,
+        178,
+        610,
+        518
+      ],
+      "sha256": "d80bba4a04f52817f4ecd8b48a19b05f8641eeb6a803fe96163a70ce9c057c42",
+      "kind": "user_source_artwork_crop"
+    },
+    {
+      "id": "office-person",
+      "source_media": "image12.png",
+      "crop": [
+        200,
+        225,
+        430,
+        396
+      ],
+      "sha256": "9c53c985b3e2ac4096326a3c2c588f2b81e23ee48fe6b46fbdb32f32b7be9e78",
+      "kind": "user_source_artwork_crop"
+    },
+    {
+      "id": "background",
+      "source_media": "image22.png",
+      "sha256": "396bb3f1e16340a959545f1ed495097154d83fe1b866e7798dfabb1108e94cd1",
+      "kind": "unchanged_user_source_background"
+    }
+  ]
+}

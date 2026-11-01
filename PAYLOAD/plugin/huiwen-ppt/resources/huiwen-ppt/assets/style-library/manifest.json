@@ -1,0 +1,233 @@
+{
+  "id": "green-office-rich-v1",
+  "name": "绿色办公插画扩展版式库",
+  "status": "approved",
+  "approval_scope": "library_storage_and_reuse",
+  "source_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+  "default": false,
+  "source_thread": "01a11a02-0e20-7710-9b34-4e25add92d2c",
+  "authorization": {
+    "at": "2026-10-28T15:56:47.255148+00:00",
+    "evidence": "帮我把两个模型重新导入",
+    "scope": "以用户修改的两份 PPT 替换现有对应模板，更新页码、预览与检索入口，保留备份；组件化方案另行访谈"
+  },
+  "reference_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+  "slide_count": 14,
+  "slide_size": {
+    "width": 1280.0,
+    "height": 720.0
+  },
+  "visual_learning": "11 references inspected; 15 editable layouts rebuilt",
+  "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+  "verification": {
+    "engine": "wps",
+    "version": "12.0",
+    "source_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+    "checked_at": "2026-10-29T02:12:19.244562+00:00",
+    "rendered_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "pixel_comparison": {
+      "pixel_identical_to_previous_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "changed_pages": []
+    },
+    "visual_review": "unchanged_pages_inherit_previous_review; changed_clean_page_15_reviewed",
+    "previous_verification": {
+      "engine": "wps",
+      "version": "12.0",
+      "source_sha256": "d09007f1166f9babe62b75041f76138e499eafc0089b4c9a1c66b448c90fe93e",
+      "checked_at": "2026-10-28T11:05:45.804490+00:00",
+      "rendered_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "visual_reviewed_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "visual_review": "reviewed",
+      "editability": {
+        "source_unchanged": true,
+        "version": "12.0",
+        "native_chart_resize_save_reopen": "pass",
+        "test_copy": "D:/codex/NAS/ppt-studio/projects/template-reimport-20261028/build/illustrated-edit-check.pptx",
+        "table_slide": 12,
+        "powerpoint": "not_verified",
+        "source_sha256": "d09007f1166f9babe62b75041f76138e499eafc0089b4c9a1c66b448c90fe93e",
+        "slide_count": 15,
+        "table_edit_save_reopen": "pass",
+        "chart_slide": 6,
+        "text_edit_save_reopen": "pass",
+        "engine": "wps",
+        "chart_data_edit_in_wps": "not_tested",
+        "shape_move_save_reopen": "pass"
+      },
+      "powerpoint": "not_verified",
+      "chart_data_edit_in_wps": "not_tested",
+      "import_preservation": "primary_reference_is_byte_identical_to_user_modified_pptx",
+      "report": "D:\\codex\\NAS\\ppt-studio\\projects\\template-reimport-20261028\\qa-report.json",
+      "warnings": []
+    },
+    "editability": {
+      "engine": "wps",
+      "chart_data_edit_in_wps": "not_tested",
+      "source_unchanged": true,
+      "source_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+      "slide_count": 14,
+      "native_chart_resize_save_reopen": "pass",
+      "table_edit_save_reopen": "pass",
+      "powerpoint": "not_verified",
+      "test_copy": "D:/codex/NAS/ppt-studio/projects/template-components-20261028/reimport/build/illustrated-edit-test.pptx",
+      "shape_move_save_reopen": "pass",
+      "text_edit_save_reopen": "pass",
+      "chart_slide": 6,
+      "table_slide": 12,
+      "version": "12.0"
+    },
+    "powerpoint": "not_verified",
+    "chart_data_edit_in_wps": "not_tested",
+    "import_preservation": "byte_identical_to_user_modified_pptx",
+    "warnings": [],
+    "report": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport\\qa-report.json"
+  },
+  "confirmation": {
+    "confirmed_by": "用户",
+    "note": "本次用户请求授权长期保存和复用样式模板；新参考页的用户视觉验收另行记录，当前尚未发生。",
+    "at": "2026-10-08T12:50:10.140993+00:00"
+  },
+  "family": "green-office-illustrated",
+  "selection_policy": "ask_when_unspecified",
+  "previous_versions": [
+    {
+      "version": 1,
+      "reference_sha256": "efb84806b741df7b1474af8cf9b98eb52c95abae5fccf47a64d61774475a57eb",
+      "slide_count": 15,
+      "backup": "D:\\codex\\NAS\\ppt-studio\\projects\\template-reimport-20261028\\backup\\profile-skill\\assets\\style-library",
+      "verification": {
+        "wps_version": "12.0",
+        "visual_reviewed_pages": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "first_revision_all_pages_reviewed": true,
+        "revised_body_pages": [
+          4,
+          6,
+          8,
+          11
+        ],
+        "unchanged_body_pages": [
+          1,
+          2,
+          3,
+          5,
+          7,
+          9,
+          10,
+          12,
+          13,
+          14,
+          15
+        ],
+        "editability": {
+          "native_chart_resize_save_reopen": "pass",
+          "version": "12.0",
+          "source_sha256": "efb84806b741df7b1474af8cf9b98eb52c95abae5fccf47a64d61774475a57eb",
+          "shape_move_save_reopen": "pass",
+          "source_unchanged": true,
+          "engine": "wps",
+          "table_edit_save_reopen": "pass",
+          "powerpoint": "not_verified",
+          "text_edit_save_reopen": "pass",
+          "slide_count": 15,
+          "chart_data_edit_in_wps": "not_tested"
+        },
+        "powerpoint": "not_verified"
+      },
+      "authorization": {
+        "status": "authorized_to_save_and_update",
+        "evidence": "同步这个会话的内容，充分学习这些图片样式，更新现有skill里面的样式模板，补充现有的样式模板，可以考虑做一个小型的素材库，我的要求是后续生成的ppt有更加丰富的样式和展示形式，同时内容充实",
+        "scope": "长期学习视觉样式、补充模板和素材；业务事实另行核实；新模板成稿的用户视觉验收按实际记录"
+      }
+    },
+    {
+      "version": 2,
+      "reference_sha256": "d09007f1166f9babe62b75041f76138e499eafc0089b4c9a1c66b448c90fe93e",
+      "slide_count": 15,
+      "backup": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport\\backup\\profile-skill\\assets\\style-library"
+    }
+  ],
+  "version": 3,
+  "updated_at": "2026-10-29T02:12:19.244562+00:00",
+  "source_path": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport\\input\\绿色办公插画-15页可编辑模板.pptx",
+  "user_visual_acceptance_note": "按用户修改稿替换；未另行取得逐页视觉验收。",
+  "reimport_project": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport",
+  "layout_index": "layout-index.json"
+}

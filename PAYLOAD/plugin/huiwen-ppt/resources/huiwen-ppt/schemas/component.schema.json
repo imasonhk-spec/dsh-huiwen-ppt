@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "component",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "component_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "component_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "definition_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lifecycle": {
+      "enum": [
+        "candidate",
+        "formal",
+        "retired"
+      ]
+    },
+    "quality_status": {
+      "enum": [
+        "pending",
+        "passed",
+        "requires_repair"
+      ]
+    },
+    "editability": {
+      "enum": [
+        "native",
+        "raster",
+        "whole_only"
+      ]
+    },
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "slots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "element_tree": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "component_id",
+    "component_version",
+    "lifecycle",
+    "source_refs",
+    "slots",
+    "element_tree"
+  ]
+}

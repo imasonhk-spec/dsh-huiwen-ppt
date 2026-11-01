@@ -1,0 +1,36 @@
+{
+  "reason": "removed_from_user_template",
+  "source_sha256": "60f8f82f31ff26b5bbd9010fdf247d1e996955bddd742cd51198a43f0c2e3f3e",
+  "layouts": [
+    {
+      "id": "clean-evidence",
+      "name": "内容与依据清单",
+      "tags": [
+        "表格",
+        "绿色简洁商务"
+      ],
+      "composition": "内容与依据清单",
+      "source_ids": [
+        "pdf-page-18"
+      ],
+      "source_pages": [
+        18
+      ],
+      "origin": "derived_editable_reconstruction",
+      "required_fields": [
+        "表述",
+        "来源",
+        "核对状态",
+        "下一步"
+      ],
+      "asset_ids": [],
+      "template_slide": 11,
+      "reference_preview": "sources/page-18.jpg",
+      "template_preview": "previews/slide-011.png",
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3
+    }
+  ],
+  "backup": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport\\backup\\profile-skill\\assets\\clean-business"
+}

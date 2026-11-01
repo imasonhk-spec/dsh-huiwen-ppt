@@ -1,0 +1,64 @@
+{
+  "name": "@local/huiwen-ppt",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "description": "汇文 PPT —— 模板驱动的 PPT 快速生产（真实后端：资源索引 / 项目 / LibreOffice 渲染 / 真模型对话）",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "server/",
+    "!server/**/__pycache__/**",
+    "cordis.patch.yml",
+    "icon.svg",
+    "assets/",
+    "README.md",
+    "package.json",
+    "resources/",
+    "!resources/**/__pycache__/**",
+    "license-gate.mjs",
+    "license-http.mjs",
+    "license-panel.js",
+    "install-manifest.json"
+  ],
+  "icon": "./icon.svg",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    },
+    "capabilityPack": {
+      "id": "huiwen-ppt",
+      "title": "汇文 PPT",
+      "description": "模板驱动的 PPT 快速生产：模板库、对话制作、画布审阅与版本导出（真实后端）",
+      "entryKey": "cap:huiwen-ppt",
+      "order": 20,
+      "icon": "🎬",
+      "category": "协作效率",
+      "version": "v0.5.0",
+      "tags": [
+        "模板库",
+        "项目向导",
+        "画布审阅"
+      ],
+      "subs": [
+        "归档项目",
+        "对话制作",
+        "模板库"
+      ],
+      "openEvent": "cappacks:open-huiwen-ppt"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

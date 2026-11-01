@@ -1,0 +1,1657 @@
+{
+  "schema_version": 1,
+  "id": "green-office-rich-v1",
+  "name": "绿色办公插画扩展版式库",
+  "created": "2026-10-08",
+  "source_thread": "01a11a02-0e20-7710-9b34-4e25add92d2c",
+  "source_title": "回应问候1",
+  "authorization": {
+    "at": "2026-10-28T15:56:47.255148+00:00",
+    "evidence": "帮我把两个模型重新导入",
+    "scope": "以用户修改的两份 PPT 替换现有对应模板，更新页码、预览与检索入口，保留备份；组件化方案另行访谈"
+  },
+  "source_review": "all_11_images_visually_reviewed",
+  "facts_policy": {
+    "effect_numbers": "unverified_reference_only",
+    "screenshots": "reference_only_replace_for_actual_demo",
+    "business_names": "project_specific_verify_before_use"
+  },
+  "tokens": {
+    "canvas": [
+      1280,
+      720
+    ],
+    "font": "微软雅黑",
+    "colors": {
+      "green": "#008C50",
+      "deep": "#075B2C",
+      "text": "#1A2B22",
+      "mint": "#E7F6F0",
+      "border": "#B5E2D3",
+      "amber": "#F4AC00",
+      "cream": "#FFF8E6",
+      "panel": "#F9FDFC"
+    },
+    "font_px": {
+      "title": 32,
+      "section": 26,
+      "body": 24,
+      "note": 20
+    },
+    "safe_area": [
+      52,
+      120,
+      1176,
+      505
+    ],
+    "footer": [
+      52,
+      642,
+      1176,
+      38
+    ]
+  },
+  "sources": [
+    {
+      "id": "ref-01",
+      "path": "sources/ref-01.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-9207d9b4-6349-4e36-9838-f00c56d9183e.png",
+      "sha256": "bd86d6d8d25b955685ab9c4d9cdad6c111e343d924778ae76fde1f20e6787612",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-02",
+      "path": "sources/ref-02.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-3932cbaa-2b41-4a7d-be58-87f02ab6cbaa.png",
+      "sha256": "0a43871bed145b26d85e6b58c44f16b96196607650ea7ee7fb179498ddfdccef",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-03",
+      "path": "sources/ref-03.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-dc75580e-8762-41dd-b94d-fccafbae9236.png",
+      "sha256": "4d55e06f04c55ffd44a4eaa185743dcc88d13c7d9c6a8856b502d82e25e69ab5",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-04",
+      "path": "sources/ref-04.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-c87bedae-4bb5-4e78-ac3f-58d44436e1ad.png",
+      "sha256": "4a7701ab7d46ec039da977184af2b5c87938dae96b69a209ff91760ebe9a3484",
+      "width": 1644,
+      "height": 927,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-05",
+      "path": "sources/ref-05.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-5594bb51-ab36-4885-91bf-4eebc12003b6.png",
+      "sha256": "fb2c17ef79e94754740bb6b484472e9502d5367217bffaa68af3767b78fc0fb7",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-06",
+      "path": "sources/ref-06.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-e2aad681-0c09-4e64-bd6d-ccce00313e11.png",
+      "sha256": "9b679c9943b20b8c6b534fc4f33f560507e6eb8e641184955226e6f4f56da59b",
+      "width": 1638,
+      "height": 927,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-07",
+      "path": "sources/ref-07.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-ecc0df24-0b57-4ec2-bd9c-3b0efe6b212a.png",
+      "sha256": "a0477cbf07395a6d29536194ea72dfea3e5d38ba5fe796db2604967134fbe23a",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-08",
+      "path": "sources/ref-08.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-6ffb89a1-df66-4486-af3b-fc11006a773e.png",
+      "sha256": "222ca66f56f38a51faaa7731329883aa56188cf8e5a942a3ff7c9a47fe1c87c0",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-09",
+      "path": "sources/ref-09.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-1a8c357f-419c-4066-bd4d-3e002d92cb5d.png",
+      "sha256": "234d1deb17783808ab86be76e56f426ce25c9493bacc4f2e91a2f9d6f6b80ccf",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-10",
+      "path": "sources/ref-10.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-4b9583ee-3328-49a1-9972-2ca264343a6d.png",
+      "sha256": "00edb1042fdd26fd93fa77c63cc5fe84b09a5a10ada6f9c4be9e813eb92e0277",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    },
+    {
+      "id": "ref-11",
+      "path": "sources/ref-11.png",
+      "original_path": "C:\\Users\\abc\\AppData\\Local\\Temp\\codex-clipboard-1311760f-2ffe-473a-8507-8b0581639fdd.png",
+      "sha256": "76a922f342fb4d05f5dc9f9b801e930c22b7afdfbea0e4fb46e5445f39009c51",
+      "width": 1919,
+      "height": 1080,
+      "review": "visually_reviewed",
+      "business_facts": "reference_only_unverified"
+    }
+  ],
+  "assets": [
+    {
+      "id": "office-team",
+      "name": "办公人物与材料",
+      "tags": [
+        "人物",
+        "需求",
+        "办公"
+      ],
+      "path": "images/office-team.png",
+      "source_id": "ref-01",
+      "crop_px": [
+        160,
+        252,
+        715,
+        456
+      ],
+      "sha256": "ec2ca7e69cf5bd1e6e06dfdfb2ecc1bfde9ff1ecc4c82cd4a1c4fd6ab15733fe",
+      "width": 555,
+      "height": 204,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 444,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "document-search",
+      "name": "文档检索",
+      "tags": [
+        "检索",
+        "定位",
+        "资料"
+      ],
+      "path": "images/document-search.png",
+      "source_id": "ref-01",
+      "crop_px": [
+        922,
+        272,
+        1127,
+        426
+      ],
+      "sha256": "eb86e4055bd7a45b2b7afb0dfc1539d7f203f86a412e3c9619177409884a0791",
+      "width": 205,
+      "height": 154,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 164,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "document-organize",
+      "name": "资料归纳",
+      "tags": [
+        "归纳",
+        "资料",
+        "整理"
+      ],
+      "path": "images/document-organize.png",
+      "source_id": "ref-01",
+      "crop_px": [
+        922,
+        483,
+        1127,
+        642
+      ],
+      "sha256": "b3190bc1da0a840fe134633ca8efbd014084630c683e946eb7e235cdedf1919f",
+      "width": 205,
+      "height": 159,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 164,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "document-verify",
+      "name": "文档核查",
+      "tags": [
+        "核查",
+        "依据",
+        "文档"
+      ],
+      "path": "images/document-verify.png",
+      "source_id": "ref-01",
+      "crop_px": [
+        922,
+        699,
+        1127,
+        858
+      ],
+      "sha256": "119b7d7b144cb2261a650ed60c707f285ee76e0bc791d0a920f29d052bb310af",
+      "width": 205,
+      "height": 159,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 164,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "meeting-assistant",
+      "name": "会议助手",
+      "tags": [
+        "会议",
+        "人员",
+        "文档"
+      ],
+      "path": "images/meeting-assistant.png",
+      "source_id": "ref-02",
+      "crop_px": [
+        660,
+        272,
+        874,
+        454
+      ],
+      "sha256": "cd33aa1bb275f4637855d928a86e3fb0535eb4c0e88d16ef39f3ced025be84d3",
+      "width": 214,
+      "height": 182,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 171,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "platform",
+      "name": "统一工作台插画",
+      "tags": [
+        "平台",
+        "中心",
+        "入口"
+      ],
+      "path": "images/platform.png",
+      "source_id": "ref-02",
+      "crop_px": [
+        849,
+        562,
+        1070,
+        730
+      ],
+      "sha256": "7fceb5c69f7c232e264e0e97f3e8bcbd6ed9ec6a689707f231b500f263b263d9",
+      "width": 221,
+      "height": 168,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 177,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "draft-task",
+      "name": "材料起草任务",
+      "tags": [
+        "起草",
+        "任务",
+        "文档"
+      ],
+      "path": "images/draft-task.png",
+      "source_id": "ref-03",
+      "crop_px": [
+        151,
+        206,
+        435,
+        380
+      ],
+      "sha256": "7b34af7028f95551c095604249fa9a920b1ca828f631574e78fe393ea06a7622",
+      "width": 284,
+      "height": 174,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 227,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "step-ingest",
+      "name": "文件入库",
+      "tags": [
+        "入库",
+        "资料",
+        "流程"
+      ],
+      "path": "images/step-ingest.png",
+      "source_id": "ref-03",
+      "crop_px": [
+        183,
+        489,
+        393,
+        622
+      ],
+      "sha256": "3be92acb04be1f07b7b49b0359fd35c4f8394b7b27ffd50262f34fc4becdb6cb",
+      "width": 210,
+      "height": 133,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 168,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "step-scope",
+      "name": "选定文件范围",
+      "tags": [
+        "范围",
+        "设置",
+        "流程"
+      ],
+      "path": "images/step-scope.png",
+      "source_id": "ref-03",
+      "crop_px": [
+        642,
+        489,
+        850,
+        622
+      ],
+      "sha256": "1737a22e9dbedf6c505379634adc66b61078dc3eb133f30c42378e541c7ecbba",
+      "width": 208,
+      "height": 133,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 166,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "step-search",
+      "name": "检索原文",
+      "tags": [
+        "检索",
+        "原文",
+        "流程"
+      ],
+      "path": "images/step-search.png",
+      "source_id": "ref-03",
+      "crop_px": [
+        1096,
+        489,
+        1304,
+        622
+      ],
+      "sha256": "101d7512c1f71fabba2ec0f697ed807dabfa3a5c1ffea8def5b2bea1132043f0",
+      "width": 208,
+      "height": 133,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 166,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "step-draft",
+      "name": "形成文稿",
+      "tags": [
+        "起草",
+        "成果",
+        "流程"
+      ],
+      "path": "images/step-draft.png",
+      "source_id": "ref-03",
+      "crop_px": [
+        1550,
+        489,
+        1757,
+        622
+      ],
+      "sha256": "d0249931c131028b3f5366270ec3198ec5cd6d6d5ae600a16ec6b0bae4ecd00a",
+      "width": 207,
+      "height": 133,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 166,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "meeting-prepare",
+      "name": "会前准备",
+      "tags": [
+        "会前",
+        "日历",
+        "会议"
+      ],
+      "path": "images/meeting-prepare.png",
+      "source_id": "ref-05",
+      "crop_px": [
+        144,
+        344,
+        604,
+        536
+      ],
+      "sha256": "429f2245a81f4c44790480d2f27e3b12436bc6691f10c784e92a2058ef36c06a",
+      "width": 460,
+      "height": 192,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 368,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "meeting-record",
+      "name": "会议记录",
+      "tags": [
+        "会中",
+        "录音",
+        "会议"
+      ],
+      "path": "images/meeting-record.png",
+      "source_id": "ref-05",
+      "crop_px": [
+        726,
+        342,
+        1181,
+        538
+      ],
+      "sha256": "90e887091eef6e3e46dafa71d513f0c9ffc73548f40c132d297b760f8115a49d",
+      "width": 455,
+      "height": 196,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 364,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "meeting-result",
+      "name": "会议成果",
+      "tags": [
+        "会后",
+        "责任",
+        "会议"
+      ],
+      "path": "images/meeting-result.png",
+      "source_id": "ref-05",
+      "crop_px": [
+        1342,
+        346,
+        1783,
+        534
+      ],
+      "sha256": "b2a2c641c97275265f9e673314b60d88fee032fb967338f84224801bfc1e7dad",
+      "width": 441,
+      "height": 188,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 353,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "model-server",
+      "name": "模型服务",
+      "tags": [
+        "模型",
+        "服务",
+        "架构"
+      ],
+      "path": "images/model-server.png",
+      "source_id": "ref-07",
+      "crop_px": [
+        559,
+        394,
+        796,
+        561
+      ],
+      "sha256": "f3dd405b0b407a7523c40a2b2ba1e8fdc194c614ae4aa8c895189194f2bc2479",
+      "width": 237,
+      "height": 167,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 190,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "rag-search",
+      "name": "知识检索",
+      "tags": [
+        "RAG",
+        "检索",
+        "架构"
+      ],
+      "path": "images/rag-search.png",
+      "source_id": "ref-07",
+      "crop_px": [
+        859,
+        406,
+        1099,
+        562
+      ],
+      "sha256": "971aeb44bd4ffe64047c9b1559a985b1303256b2f1437d338791d830cf440758",
+      "width": 240,
+      "height": 156,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 192,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "structured-tool",
+      "name": "业务工具",
+      "tags": [
+        "工具",
+        "执行",
+        "架构"
+      ],
+      "path": "images/structured-tool.png",
+      "source_id": "ref-07",
+      "crop_px": [
+        1175,
+        394,
+        1405,
+        561
+      ],
+      "sha256": "38aeb82d04e05bd0b5a5e7990efedba0835c0349ce805e680621acb4c945590a",
+      "width": 230,
+      "height": 167,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 184,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "business-tools",
+      "name": "工具编排",
+      "tags": [
+        "工具",
+        "规则",
+        "编排"
+      ],
+      "path": "images/business-tools.png",
+      "source_id": "ref-08",
+      "crop_px": [
+        69,
+        274,
+        316,
+        477
+      ],
+      "sha256": "f4aeecf8b8978b3f4bdb7cf7c8a30d69b9eff6ae5ec7cae4e2ede439a7d5851c",
+      "width": 247,
+      "height": 203,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 198,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "policy-check",
+      "name": "政策依据核查",
+      "tags": [
+        "政策",
+        "规则",
+        "核查"
+      ],
+      "path": "images/policy-check.png",
+      "source_id": "ref-08",
+      "crop_px": [
+        1259,
+        266,
+        1511,
+        464
+      ],
+      "sha256": "2ef62c72c5bc0f82f2b68cda1f63bf654726644255a4a905a54c3462782f1881",
+      "width": 252,
+      "height": 198,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 202,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "upload-files",
+      "name": "资料提交",
+      "tags": [
+        "上传",
+        "资料",
+        "接收"
+      ],
+      "path": "images/upload-files.png",
+      "source_id": "ref-08",
+      "crop_px": [
+        70,
+        573,
+        318,
+        760
+      ],
+      "sha256": "47f5b7aadb1deb5326d38f6645656d7db6d362fb9fc0a7d2a031a4d3e575b6f0",
+      "width": 248,
+      "height": 187,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 198,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "source-review",
+      "name": "来源复核",
+      "tags": [
+        "来源",
+        "复核",
+        "规则"
+      ],
+      "path": "images/source-review.png",
+      "source_id": "ref-08",
+      "crop_px": [
+        1268,
+        584,
+        1505,
+        762
+      ],
+      "sha256": "5dd2e3e0ff229645b3e7d628e8843bd339469e9cc4e0b2427d6e95896f2170f8",
+      "width": 237,
+      "height": 178,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 190,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "value-search",
+      "name": "资料定位",
+      "tags": [
+        "价值",
+        "检索",
+        "效率"
+      ],
+      "path": "images/value-search.png",
+      "source_id": "ref-09",
+      "crop_px": [
+        204,
+        278,
+        514,
+        504
+      ],
+      "sha256": "7cba5bb1f5a4c397146aab445b925b2a9efeff0e34ed9fba909fe79ed046a00a",
+      "width": 310,
+      "height": 226,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 248,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "value-organize",
+      "name": "内容整理",
+      "tags": [
+        "价值",
+        "整理",
+        "效率"
+      ],
+      "path": "images/value-organize.png",
+      "source_id": "ref-09",
+      "crop_px": [
+        807,
+        284,
+        1108,
+        500
+      ],
+      "sha256": "8f55fb6df0517483f65c28a2da891b3e285ed53823373202a0e33bc8ec620043",
+      "width": 301,
+      "height": 216,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 241,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "value-trace",
+      "name": "结果可查",
+      "tags": [
+        "价值",
+        "依据",
+        "追溯"
+      ],
+      "path": "images/value-trace.png",
+      "source_id": "ref-09",
+      "crop_px": [
+        1396,
+        280,
+        1693,
+        498
+      ],
+      "sha256": "762a6c8c085816b39ec22cf940ff9f176d23c8ddfba66b3f26110462498c85a8",
+      "width": 297,
+      "height": 218,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 238,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "value-growth",
+      "name": "指标验证插画",
+      "tags": [
+        "指标",
+        "验证",
+        "评估"
+      ],
+      "path": "images/value-growth.png",
+      "source_id": "ref-09",
+      "crop_px": [
+        129,
+        794,
+        390,
+        952
+      ],
+      "sha256": "e2ec0dc62ad5af556a1ac55c2a7f611a4a1579813c09419eaeb37b81ae3366f7",
+      "width": 261,
+      "height": 158,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 209,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "central-documents",
+      "name": "工作台文档插画",
+      "tags": [
+        "平台",
+        "任务",
+        "成果"
+      ],
+      "path": "images/central-documents.png",
+      "source_id": "ref-10",
+      "crop_px": [
+        828,
+        398,
+        1085,
+        662
+      ],
+      "sha256": "7b356a47c12c480a28042565ddd0e98736407c9ced0492d051b1dad08e55334a",
+      "width": 257,
+      "height": 264,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 206,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "security-shield",
+      "name": "安全审核插画",
+      "tags": [
+        "安全",
+        "审核",
+        "规则"
+      ],
+      "path": "images/security-shield.png",
+      "source_id": "ref-11",
+      "crop_px": [
+        826,
+        657,
+        1103,
+        916
+      ],
+      "sha256": "e4501c8e3546f62b76e927ca7e4c02d64bbbdc62f71fd93e3d2607baed21bfc8",
+      "width": 277,
+      "height": 259,
+      "kind": "illustration",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "user_presentations",
+      "max_width_px_at_1280": 222,
+      "review": "crop_visually_reviewed"
+    },
+    {
+      "id": "meeting-ui-reference",
+      "name": "会议界面参考截图",
+      "tags": [
+        "界面",
+        "截图",
+        "演示"
+      ],
+      "path": "images/meeting-ui-reference.png",
+      "source_id": "ref-04",
+      "crop_px": [
+        78,
+        147,
+        1042,
+        681
+      ],
+      "sha256": "903e5939295e8419a1b3cd62e5dfc0ac6352e4cdab7cb4a8552cb70ec4d726d5",
+      "width": 964,
+      "height": 534,
+      "kind": "reference_screenshot",
+      "alpha": false,
+      "edge_background": "reference_mint_white",
+      "reuse_scope": "visual_reference_only",
+      "max_width_px_at_1280": 771,
+      "review": "crop_visually_reviewed"
+    }
+  ],
+  "layouts": [
+    {
+      "id": "needs-map",
+      "name": "需求与能力映射",
+      "tags": [
+        "需求",
+        "定位",
+        "能力"
+      ],
+      "source_ids": [
+        "ref-01"
+      ],
+      "origin": "reference",
+      "composition": "左侧人物与任务，右侧三条能力，每条含机制和产出",
+      "required_fields": [
+        "服务对象与任务",
+        "任务痛点",
+        "能力名称",
+        "处理机制",
+        "可见产出",
+        "使用条件"
+      ],
+      "capacity": "右侧最多3条，单条机制约30–55字、产出1–3项",
+      "regions": [
+        "left:52,150,446,430",
+        "right:584,150,644,430"
+      ],
+      "asset_ids": [
+        "office-team",
+        "document-search",
+        "document-organize",
+        "document-verify"
+      ],
+      "template_slide": 1,
+      "reference_preview": "sources/ref-01.png",
+      "template_preview": "previews/slide-001.png",
+      "native_requirements": [
+        "text"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "platform-hub",
+      "name": "平台中心与能力分支",
+      "tags": [
+        "定位",
+        "平台",
+        "关系"
+      ],
+      "source_ids": [
+        "ref-02"
+      ],
+      "origin": "reference",
+      "composition": "中心入口与三个分支，连线表达归属关系",
+      "required_fields": [
+        "中心主体",
+        "分支名称",
+        "输入与处理范围",
+        "输出",
+        "权限条件"
+      ],
+      "capacity": "3个分支，每个2项说明，中心标签约6–12字",
+      "regions": [
+        "hub:450,375,380,205",
+        "top:425,150,430,175",
+        "left:52,330,375,230",
+        "right:853,330,375,230"
+      ],
+      "asset_ids": [
+        "platform",
+        "meeting-assistant",
+        "document-search",
+        "policy-check"
+      ],
+      "template_slide": 2,
+      "reference_preview": "sources/ref-02.png",
+      "template_preview": "previews/slide-002.png",
+      "native_requirements": [
+        "text",
+        "diagram"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "four-step-evidence",
+      "name": "任务与四步处理链",
+      "tags": [
+        "流程",
+        "任务",
+        "依据"
+      ],
+      "source_ids": [
+        "ref-03"
+      ],
+      "origin": "reference",
+      "composition": "上部任务条，中部四步，下部成果与复核条件",
+      "required_fields": [
+        "业务任务",
+        "每步动作",
+        "每步输入或输出",
+        "工作成果",
+        "人工复核",
+        "资料缺口处理"
+      ],
+      "capacity": "4步，每步标题约8字、说明约20–35字；下部2–3块",
+      "regions": [
+        "task:52,145,1176,110",
+        "steps:52,300,1176,220",
+        "checks:52,545,1176,65"
+      ],
+      "asset_ids": [
+        "draft-task",
+        "step-ingest",
+        "step-scope",
+        "step-search",
+        "step-draft"
+      ],
+      "template_slide": 3,
+      "reference_preview": "sources/ref-03.png",
+      "template_preview": "previews/slide-003.png",
+      "native_requirements": [
+        "text",
+        "diagram"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "screen-explainer",
+      "name": "界面与操作解读",
+      "tags": [
+        "界面",
+        "演示",
+        "功能"
+      ],
+      "source_ids": [
+        "ref-04"
+      ],
+      "origin": "reference",
+      "composition": "左侧空白截图填充区与结果提示，右侧分阶段解释",
+      "required_fields": [
+        "界面来源与版本",
+        "操作入口",
+        "输入字段",
+        "执行反馈",
+        "最终成果",
+        "适用限制"
+      ],
+      "capacity": "截图约占宽度62%；右侧3段，每段约40–65字",
+      "regions": [
+        "screen:52,150,750,415",
+        "explain:840,150,388,460"
+      ],
+      "asset_ids": [],
+      "template_slide": 4,
+      "reference_preview": "sources/ref-04.png",
+      "template_preview": "previews/slide-004.png",
+      "native_requirements": [
+        "text"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "optional_asset_ids": [
+        "meeting-ui-reference"
+      ],
+      "usage_note": "用户修改稿保留截图填充区；制作时插入本任务真实截图，不自动恢复旧界面。",
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "three-stage",
+      "name": "三阶段业务生命周期",
+      "tags": [
+        "流程",
+        "阶段",
+        "会议"
+      ],
+      "source_ids": [
+        "ref-05"
+      ],
+      "origin": "reference",
+      "composition": "三列大插画与阶段说明，底部横向审核条件",
+      "required_fields": [
+        "阶段名称",
+        "输入材料",
+        "具体动作",
+        "阶段产出",
+        "审核条件"
+      ],
+      "capacity": "3阶段，每阶段2–3项，单项约20–35字",
+      "regions": [
+        "columns:52,160,1176,390",
+        "checks:52,575,1176,50"
+      ],
+      "asset_ids": [
+        "meeting-prepare",
+        "meeting-record",
+        "meeting-result"
+      ],
+      "template_slide": 5,
+      "reference_preview": "sources/ref-05.png",
+      "template_preview": "previews/slide-005.png",
+      "native_requirements": [
+        "text",
+        "diagram"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "metric-comparison",
+      "name": "指标与前后对照",
+      "tags": [
+        "指标",
+        "对比",
+        "数据"
+      ],
+      "source_ids": [
+        "ref-06"
+      ],
+      "origin": "reference",
+      "composition": "两组大数值或测量状态，原生对照图，底部测量口径",
+      "required_fields": [
+        "指标定义",
+        "基准值",
+        "对照值",
+        "单位",
+        "同批任务范围",
+        "样本量与日期",
+        "计算方法",
+        "复核成本"
+      ],
+      "capacity": "2个主指标；每组2个对照值与1项口径说明",
+      "regions": [
+        "metric-a:52,160,565,385",
+        "metric-b:663,160,565,385",
+        "method:52,575,1176,50"
+      ],
+      "asset_ids": [
+        "value-growth"
+      ],
+      "template_slide": 6,
+      "reference_preview": "sources/ref-06.png",
+      "template_preview": "previews/slide-006.png",
+      "native_requirements": [
+        "text",
+        "chart"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "architecture-pipeline",
+      "name": "输入与处理及结果架构",
+      "tags": [
+        "技术",
+        "架构",
+        "机制"
+      ],
+      "source_ids": [
+        "ref-07"
+      ],
+      "origin": "reference",
+      "composition": "左侧业务入口，中部三处理模块，右侧结果与依据，下部技术组成",
+      "required_fields": [
+        "入口与权限",
+        "模块职责",
+        "模块输入输出",
+        "依赖关系",
+        "结果来源",
+        "实际状态",
+        "技术组成"
+      ],
+      "capacity": "3个处理模块，每模块约30–50字；两侧各2–3项",
+      "regions": [
+        "input:52,155,235,390",
+        "processing:335,155,610,390",
+        "output:992,155,236,390"
+      ],
+      "asset_ids": [
+        "model-server",
+        "rag-search",
+        "structured-tool"
+      ],
+      "template_slide": 7,
+      "reference_preview": "sources/ref-07.png",
+      "template_preview": "previews/slide-007.png",
+      "native_requirements": [
+        "text",
+        "diagram"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "radial-rules",
+      "name": "中心规则与四项约束",
+      "tags": [
+        "规则",
+        "设计",
+        "关系"
+      ],
+      "source_ids": [
+        "ref-08"
+      ],
+      "origin": "reference",
+      "composition": "中心原则与四周规则，四条连线表达归属",
+      "required_fields": [
+        "中心原则",
+        "规则名称",
+        "触发条件",
+        "执行要求",
+        "验证证据"
+      ],
+      "capacity": "4项规则，每项2–3点约35–65字",
+      "regions": [
+        "center:480,250,320,260",
+        "top-left:52,155,390,195",
+        "top-right:838,155,390,195",
+        "bottom-left:52,390,390,195",
+        "bottom-right:838,390,390,195"
+      ],
+      "asset_ids": [
+        "business-tools",
+        "policy-check",
+        "upload-files",
+        "source-review"
+      ],
+      "template_slide": 8,
+      "reference_preview": "sources/ref-08.png",
+      "template_preview": "previews/slide-008.png",
+      "native_requirements": [
+        "text",
+        "diagram"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "value-verification",
+      "name": "价值说明与验证设计",
+      "tags": [
+        "价值",
+        "验证",
+        "产出"
+      ],
+      "source_ids": [
+        "ref-09"
+      ],
+      "origin": "reference",
+      "composition": "上部三组机制与价值，下部验证方法和指标",
+      "required_fields": [
+        "处理机制",
+        "减少的操作",
+        "可核对的价值",
+        "验证任务",
+        "采集指标",
+        "结果依据"
+      ],
+      "capacity": "3组价值，每组2条说明；验证区域1段与3–4项指标",
+      "regions": [
+        "values:52,160,1176,360",
+        "verification:52,545,1176,80"
+      ],
+      "asset_ids": [
+        "value-search",
+        "value-organize",
+        "value-trace",
+        "value-growth"
+      ],
+      "template_slide": 9,
+      "reference_preview": "sources/ref-09.png",
+      "template_preview": "previews/slide-009.png",
+      "native_requirements": [
+        "text"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "continuity-exceptions",
+      "name": "连续任务与异常处置",
+      "tags": [
+        "异常",
+        "功能",
+        "稳定性"
+      ],
+      "source_ids": [
+        "ref-10"
+      ],
+      "origin": "reference",
+      "composition": "左侧连续任务，中心主体，右侧异常，底部状态核验",
+      "required_fields": [
+        "连续任务状态",
+        "范围约束",
+        "异常触发",
+        "恢复动作",
+        "可见反馈",
+        "成功证据",
+        "人工复核"
+      ],
+      "capacity": "左侧3项、右侧3项；每项约25–45字",
+      "regions": [
+        "left:52,160,342,380",
+        "center:425,240,430,250",
+        "right:886,160,342,380",
+        "status:52,565,1176,60"
+      ],
+      "asset_ids": [
+        "central-documents",
+        "upload-files",
+        "document-verify"
+      ],
+      "template_slide": 10,
+      "reference_preview": "sources/ref-10.png",
+      "template_preview": "previews/slide-010.png",
+      "native_requirements": [
+        "text"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "four-boundaries",
+      "name": "四项边界与审核关系",
+      "tags": [
+        "边界",
+        "合规",
+        "权限"
+      ],
+      "source_ids": [
+        "ref-11"
+      ],
+      "origin": "reference",
+      "composition": "上部四列范围规则，下部中心盾牌与边界标签",
+      "required_fields": [
+        "资料范围",
+        "权限范围",
+        "留痕对象",
+        "网络边界",
+        "审核责任",
+        "落实证据"
+      ],
+      "capacity": "4列，每列1段约40–65字与1项具体要求",
+      "regions": [
+        "columns:52,160,1176,345",
+        "relations:52,540,1176,85"
+      ],
+      "asset_ids": [
+        "security-shield",
+        "policy-check",
+        "source-review"
+      ],
+      "template_slide": 11,
+      "reference_preview": "sources/ref-11.png",
+      "template_preview": "previews/slide-011.png",
+      "native_requirements": [
+        "text"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "evidence-table",
+      "name": "内容与依据对照表",
+      "tags": [
+        "表格",
+        "引用",
+        "依据"
+      ],
+      "source_ids": [
+        "ref-03"
+      ],
+      "origin": "derived",
+      "composition": "左侧文档插画，右侧原生表格，底部缺口说明",
+      "required_fields": [
+        "内容项目",
+        "具体表述",
+        "来源位置",
+        "日期或版本",
+        "核对状态"
+      ],
+      "capacity": "3–5行、3–4列，单元格约12–35字",
+      "regions": [
+        "illustration:52,215,260,260",
+        "table:350,170,878,395"
+      ],
+      "asset_ids": [
+        "document-verify"
+      ],
+      "template_slide": 12,
+      "reference_preview": "sources/ref-03.png",
+      "template_preview": "previews/slide-012.png",
+      "native_requirements": [
+        "text",
+        "table"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "roadmap-deliverables",
+      "name": "路线图与阶段产出",
+      "tags": [
+        "计划",
+        "路线图",
+        "落地"
+      ],
+      "source_ids": [
+        "ref-05"
+      ],
+      "origin": "derived",
+      "composition": "上部时间节点，中部阶段动作，下部交付与验收",
+      "required_fields": [
+        "阶段",
+        "时间或启动条件",
+        "负责人",
+        "具体动作",
+        "交付物",
+        "验收条件",
+        "依赖项"
+      ],
+      "capacity": "3–4阶段，每阶段动作与产出各1–2项",
+      "regions": [
+        "timeline:100,180,1080,55",
+        "stages:52,260,1176,300"
+      ],
+      "asset_ids": [
+        "meeting-prepare",
+        "step-draft",
+        "document-verify"
+      ],
+      "template_slide": 13,
+      "reference_preview": "sources/ref-05.png",
+      "template_preview": "previews/slide-013.png",
+      "native_requirements": [
+        "text",
+        "diagram"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    },
+    {
+      "id": "chart-explainer",
+      "name": "数据图与解释依据",
+      "tags": [
+        "图表",
+        "分析",
+        "趋势"
+      ],
+      "source_ids": [
+        "ref-06"
+      ],
+      "origin": "derived",
+      "composition": "左侧原生图表，右侧解释、测量口径和行动",
+      "required_fields": [
+        "时间或类别",
+        "数值与单位",
+        "数据来源",
+        "比较结果",
+        "原因依据",
+        "使用条件"
+      ],
+      "capacity": "1主图、右侧2–3段；数值只用有来源的数据",
+      "regions": [
+        "chart:52,165,760,405",
+        "explain:860,165,368,405"
+      ],
+      "asset_ids": [
+        "value-growth"
+      ],
+      "template_slide": 14,
+      "reference_preview": "sources/ref-06.png",
+      "template_preview": "previews/slide-014.png",
+      "native_requirements": [
+        "text",
+        "chart"
+      ],
+      "template_review": "wps_rendered_and_editability_sampled",
+      "template_file": "reference.pptx",
+      "template_version": 3,
+      "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+      "reuse_warnings": []
+    }
+  ],
+  "editable_template": "reference.pptx",
+  "template_status": "user_modified_reimported",
+  "user_visual_acceptance": "user_edited_and_authorized_for_replacement",
+  "template_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+  "inspection": "inspection.json",
+  "verification": {
+    "engine": "wps",
+    "version": "12.0",
+    "source_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+    "checked_at": "2026-10-29T02:12:19.244562+00:00",
+    "rendered_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "pixel_comparison": {
+      "pixel_identical_to_previous_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "changed_pages": []
+    },
+    "visual_review": "unchanged_pages_inherit_previous_review; changed_clean_page_15_reviewed",
+    "previous_verification": {
+      "engine": "wps",
+      "version": "12.0",
+      "source_sha256": "d09007f1166f9babe62b75041f76138e499eafc0089b4c9a1c66b448c90fe93e",
+      "checked_at": "2026-10-28T11:05:45.804490+00:00",
+      "rendered_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "visual_reviewed_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "visual_review": "reviewed",
+      "editability": {
+        "source_unchanged": true,
+        "version": "12.0",
+        "native_chart_resize_save_reopen": "pass",
+        "test_copy": "D:/codex/NAS/ppt-studio/projects/template-reimport-20261028/build/illustrated-edit-check.pptx",
+        "table_slide": 12,
+        "powerpoint": "not_verified",
+        "source_sha256": "d09007f1166f9babe62b75041f76138e499eafc0089b4c9a1c66b448c90fe93e",
+        "slide_count": 15,
+        "table_edit_save_reopen": "pass",
+        "chart_slide": 6,
+        "text_edit_save_reopen": "pass",
+        "engine": "wps",
+        "chart_data_edit_in_wps": "not_tested",
+        "shape_move_save_reopen": "pass"
+      },
+      "powerpoint": "not_verified",
+      "chart_data_edit_in_wps": "not_tested",
+      "import_preservation": "primary_reference_is_byte_identical_to_user_modified_pptx",
+      "report": "D:\\codex\\NAS\\ppt-studio\\projects\\template-reimport-20261028\\qa-report.json",
+      "warnings": []
+    },
+    "editability": {
+      "engine": "wps",
+      "chart_data_edit_in_wps": "not_tested",
+      "source_unchanged": true,
+      "source_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+      "slide_count": 14,
+      "native_chart_resize_save_reopen": "pass",
+      "table_edit_save_reopen": "pass",
+      "powerpoint": "not_verified",
+      "test_copy": "D:/codex/NAS/ppt-studio/projects/template-components-20261028/reimport/build/illustrated-edit-test.pptx",
+      "shape_move_save_reopen": "pass",
+      "text_edit_save_reopen": "pass",
+      "chart_slide": 6,
+      "table_slide": 12,
+      "version": "12.0"
+    },
+    "powerpoint": "not_verified",
+    "chart_data_edit_in_wps": "not_tested",
+    "import_preservation": "byte_identical_to_user_modified_pptx",
+    "warnings": [],
+    "report": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport\\qa-report.json"
+  },
+  "family": "green-office-illustrated",
+  "selection_policy": "ask_when_unspecified",
+  "version": 3,
+  "updated_at": "2026-10-29T02:12:19.244562+00:00",
+  "template_slide_count": 14,
+  "layout_index": "layout-index.json",
+  "reimport_project": "D:\\codex\\NAS\\ppt-studio\\projects\\template-components-20261028\\reimport"
+}

@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "composition-plan",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "enum": [
+        "quick",
+        "standard"
+      ]
+    },
+    "style_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "style_sha256": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decision_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slides": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "properties": {
+          "slide_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "instances": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "properties": {
+                "instance_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "component_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "component_version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "rect": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "width": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "height": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ],
+                  "additionalProperties": false
+                },
+                "bindings": {
+                  "type": "object"
+                },
+                "evidence_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "trial_candidate": {
+                  "type": "boolean"
+                },
+                "allow_historical": {
+                  "type": "boolean"
+                },
+                "allow_template_examples": {
+                  "type": "boolean"
+                },
+                "layer": {
+                  "enum": [
+                    "background",
+                    "content"
+                  ]
+                },
+                "transform": {
+                  "type": "object",
+                  "properties": {
+                    "node_count": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 8
+                    },
+                    "arrangement": {
+                      "enum": [
+                        "horizontal",
+                        "vertical",
+                        "two_rows",
+                        "grid",
+                        "radial"
+                      ]
+                    }
+                  },
+                  "required": []
+                }
+              },
+              "required": [
+                "instance_id",
+                "component_id",
+                "rect"
+              ]
+            }
+          },
+          "originals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "original_id": { "type": "string", "minLength": 1 },
+                "kind": { "enum": ["text", "shape", "connector", "image"] },
+                "rect": { "$ref": "#/$defs/rect" },
+                "text": { "type": "string" },
+                "asset_id": { "type": "string", "minLength": 1 },
+                "asset_path": { "type": "string" },
+                "start_id": { "type": "string", "minLength": 1 },
+                "end_id": { "type": "string", "minLength": 1 },
+                "evidence_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+              },
+              "required": ["original_id", "kind", "evidence_refs"],
+              "allOf": [
+                { "if": { "properties": { "kind": { "const": "connector" } } }, "then": { "required": ["start_id", "end_id"] }, "else": { "required": ["rect"] } },
+                { "if": { "properties": { "kind": { "const": "image" } } }, "then": { "required": ["asset_id"] } },
+                { "if": { "properties": { "kind": { "const": "text" } } }, "then": { "required": ["text"] } }
+              ]
+            }
+          },
+          "locks": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "instance_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "instance_id"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "lock_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "rect": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "y": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "width": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "height": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "width",
+                        "height"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "rect"
+                  ]
+                }
+              ]
+            }
+          },
+          "composition_family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reuse_requirement": {
+            "enum": [
+              "structural",
+              "asset",
+              "original"
+            ]
+          }
+        },
+        "allOf": [
+          { "if": { "properties": { "instances": { "maxItems": 0 } }, "required": ["instances"] },
+            "then": { "properties": { "reuse_requirement": { "const": "original" }, "originals": { "minItems": 1 } }, "required": ["reuse_requirement", "originals"] } }
+        ],
+        "required": [
+          "slide_id",
+          "instances"
+        ]
+      }
+    },
+    "visual_policy": {
+      "type": "object",
+      "properties": {
+        "unique_compositions": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unique_compositions"
+      ]
+    }
+  },
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "properties": { "x": { "type": "number", "minimum": 0 }, "y": { "type": "number", "minimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 } },
+      "required": ["x", "y", "width", "height"], "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_id",
+    "style_source",
+    "slides"
+  ]
+}

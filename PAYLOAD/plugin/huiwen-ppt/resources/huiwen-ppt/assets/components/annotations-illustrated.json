@@ -1,0 +1,126 @@
+{
+  "3": [
+    {
+      "component_id": "four-step-flow",
+      "name": "步骤流程",
+      "shape_ids": [
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27",
+        "28",
+        "29",
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35",
+        "36"
+      ],
+      "relation_type": "process_chain",
+      "parameterization": {
+        "type": "repeat",
+        "node_shape_ids": [
+          "10",
+          "11",
+          "12",
+          "14",
+          "15"
+        ],
+        "anchor_shape_id": "10",
+        "fields": {
+          "number": "12",
+          "title": "14",
+          "description": "15"
+        }
+      }
+    },
+    {
+      "component_id": "flexible-cards",
+      "name": "可变卡片组",
+      "shape_ids": [
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27",
+        "28",
+        "29",
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35",
+        "36"
+      ],
+      "relation_type": "cards",
+      "parameterization": {
+        "type": "repeat",
+        "node_shape_ids": [
+          "10",
+          "11",
+          "12",
+          "14",
+          "15"
+        ],
+        "anchor_shape_id": "10",
+        "fields": {
+          "number": "12",
+          "title": "14",
+          "description": "15"
+        }
+      }
+    }
+  ],
+  "8": [
+    {
+      "component_id": "flexible-hub",
+      "name": "中心辐射节点",
+      "shape_ids": [
+        "37",
+        "38"
+      ],
+      "relation_type": "hub",
+      "parameterization": {
+        "type": "repeat",
+        "node_shape_ids": [
+          "37",
+          "38"
+        ],
+        "anchor_shape_id": "37",
+        "fields": {
+          "title": "38"
+        }
+      }
+    }
+  ]
+}

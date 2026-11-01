@@ -1,0 +1,27 @@
+[Unit]
+Description=Huiwen Agron Ollama-compatible gateway and exclusive resource switch
+After=network.target docker.service
+Requires=docker.service
+Before=dsh-ollama-shim.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/lib/dsh-huiwen-agron
+ExecStart=/usr/local/bin/node /usr/local/lib/dsh-huiwen-agron/gateway.mjs
+ExecStopPost=/usr/bin/python3 /usr/local/lib/dsh-huiwen-agron/controller.py recover
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=2400
+TimeoutStopSec=2400
+KillMode=mixed
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,58 @@
+{
+  "8": [
+    {
+      "component_id": "clean-evidence-notes",
+      "shape_ids": [
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25"
+      ],
+      "name": "三组说明与依据",
+      "relation_type": "evidence_group"
+    },
+    {
+      "component_id": "clean-native-chart",
+      "shape_ids": [
+        "18"
+      ],
+      "name": "原生数据对照图",
+      "relation_type": "chart"
+    }
+  ],
+  "7": [
+    {
+      "component_id": "clean-native-table",
+      "shape_ids": [
+        "17"
+      ],
+      "name": "方案对照表",
+      "relation_type": "table"
+    }
+  ],
+  "15": [
+    {
+      "component_id": "clean-card-repair",
+      "shape_ids": [
+        "15",
+        "59"
+      ],
+      "name": "原稿名片待核对",
+      "requires_repair": true
+    }
+  ],
+  "20": [
+    {
+      "component_id": "clean-title-repair",
+      "shape_ids": [
+        "5",
+        "13",
+        "17"
+      ],
+      "name": "原稿标题待核对",
+      "requires_repair": true
+    }
+  ]
+}

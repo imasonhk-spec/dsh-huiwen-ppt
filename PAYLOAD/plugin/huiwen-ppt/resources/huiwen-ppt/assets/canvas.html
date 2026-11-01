@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PPT Studio · 编辑画布</title>
+  <link rel="stylesheet" href="/canvas.css"><script src="/canvas.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="brand">PPT Studio <span>模板与内容编辑</span></div>
+    <div class="actions"><button id="reload">重新载入</button><button id="render">渲染当前文件</button><a id="download" class="button" download="presentation.pptx">下载 PPTX</a><button id="apply" class="primary" disabled>应用修改</button></div>
+  </header>
+  <div class="statusbar"><span id="version">读取文件中</span><span id="status" role="status" aria-live="polite"></span></div>
+  <main>
+    <aside class="slides"><h1>页面</h1><div id="pages"></div></aside>
+    <section class="workspace" aria-label="页面编辑区域">
+      <div class="toolbar">
+        <div class="modes"><button id="selectMode" aria-pressed="true">选择与移动</button><button id="boxMode" aria-pressed="false">圈选批注</button><button id="arrowMode" aria-pressed="false">箭头批注</button></div>
+        <button id="undo" disabled>撤销待应用修改</button>
+      </div>
+      <div id="canvasWrap"><div id="canvas"><img id="preview" alt="当前 PPT 文件的实际页面渲染"><svg id="scene" xmlns="http://www.w3.org/2000/svg" aria-label="可编辑页面元素"></svg></div></div>
+      <p class="hint" id="previewHint">载入中</p>
+      <section class="annotation-panel"><label for="comment">页面批注</label><textarea id="comment" rows="2" placeholder="描述所选区域或对象需要怎样修改"></textarea><div class="annotation-actions"><button id="saveComment">保存批注</button><span>保存后回到 Codex，说明“按画布批注修改”。</span></div><div id="annotations"></div></section>
+    </section>
+    <aside class="properties"><h2>元素属性</h2><p id="selectionHint">选择页面元素，或从下方图层列表选择。</p>
+      <form id="geometryForm"><fieldset id="geometryFields" disabled><legend>位置与尺寸（像素）</legend><div class="geometry-grid">
+        <label>X<input id="x" type="number" step="any"></label><label>Y<input id="y" type="number" step="any"></label><label>宽度<input id="width" type="number" min="1" step="any"></label><label>高度<input id="height" type="number" min="1" step="any"></label>
+      </div><button type="submit">暂存位置与尺寸</button><p class="hint">方向键移动 1 像素，Shift 加方向键移动 10 像素。右下角可拖动缩放。</p></fieldset></form>
+      <div class="text-panel"><label for="elementText">文字内容</label><textarea id="elementText" rows="6" disabled></textarea><button id="stageText" disabled>暂存文字修改</button><p class="hint">完整替换沿用首个文本片段样式；混合样式的精确修改可在 Codex 中描述。</p></div>
+      <div id="tablePanel" hidden><h3>表格单元格</h3><div class="geometry-grid"><label>行（从 1 开始）<input id="cellRow" type="number" min="1" value="1"></label><label>列（从 1 开始）<input id="cellColumn" type="number" min="1" value="1"></label></div><label for="cellText">单元格文字</label><textarea id="cellText" rows="3"></textarea><button id="stageCell">暂存单元格修改</button></div>
+      <h2 class="layers-title">图层</h2><div id="layers"></div>
+    </aside>
+  </main>
+</body>
+</html>

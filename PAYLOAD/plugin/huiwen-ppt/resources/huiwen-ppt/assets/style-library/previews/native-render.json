@@ -1,0 +1,74 @@
+{
+  "engine": "libreoffice",
+  "engine_version": "24.2.7.2",
+  "source_sha256": "42737d8578eebc31385446a2858adf149547135b59f1280c86e0e48b6cca70c6",
+  "pages": 14,
+  "files": [
+    {
+      "slide": 1,
+      "file": "slide-001.png"
+    },
+    {
+      "slide": 2,
+      "file": "slide-002.png"
+    },
+    {
+      "slide": 3,
+      "file": "slide-003.png"
+    },
+    {
+      "slide": 4,
+      "file": "slide-004.png"
+    },
+    {
+      "slide": 5,
+      "file": "slide-005.png"
+    },
+    {
+      "slide": 6,
+      "file": "slide-006.png"
+    },
+    {
+      "slide": 7,
+      "file": "slide-007.png"
+    },
+    {
+      "slide": 8,
+      "file": "slide-008.png"
+    },
+    {
+      "slide": 9,
+      "file": "slide-009.png"
+    },
+    {
+      "slide": 10,
+      "file": "slide-010.png"
+    },
+    {
+      "slide": 11,
+      "file": "slide-011.png"
+    },
+    {
+      "slide": 12,
+      "file": "slide-012.png"
+    },
+    {
+      "slide": 13,
+      "file": "slide-013.png"
+    },
+    {
+      "slide": 14,
+      "file": "slide-014.png"
+    }
+  ],
+  "warnings": [
+    {
+      "type": "font_substitution",
+      "note": "服务器无微软雅黑，预览由 Noto Sans CJK/文泉驿替代渲染；最终视觉验收以 WPS 打开导出文件为准"
+    }
+  ],
+  "visual_review": "pending",
+  "duration_ms": 4095,
+  "created_at": "2026-10-29T15:01:32.549Z",
+  "slide_count": 14
+}
